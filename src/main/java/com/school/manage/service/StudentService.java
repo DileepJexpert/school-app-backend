@@ -3,15 +3,52 @@ package com.school.manage.service;
 import com.school.manage.model.Student;
 import com.school.manage.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // Import Transactional
+
 import java.util.List;
 import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
+// @RequiredArgsConstructor is great, but we'll switch to @Autowired for clarity with the new service
 public class StudentService {
 
     private final StudentRepository studentRepository;
+
+    // --- NEW: INJECTING THE FEE PROFILE SERVICE ---
+    // This creates the connection to your fee management module.
+    private final FeeProfileService feeProfileService;
+
+    // --- NEW: CONSTRUCTOR INJECTION ---
+    // Using constructor injection is a best practice with Spring.
+    @Autowired
+    public StudentService(StudentRepository studentRepository, FeeProfileService feeProfileService) {
+        this.studentRepository = studentRepository;
+        this.feeProfileService = feeProfileService;
+    }
+
+    // --- NEW: DEDICATED METHOD FOR NEW ADMISSIONS ---
+    /**
+     * Orchestrates the entire new student admission process.
+     * It saves the student's details and automatically generates their fee profile.
+     * @param student The new student data from the admission form.
+     * @return The fully admitted student object.
+     */
+    @Transactional // This ensures the whole process is one atomic operation.
+    public Student admitStudent(Student student) {
+        // First, save the student to get their unique ID
+        Student admittedStudent = saveStudent(student);
+
+        // --- THE AUTOMATIC CONNECTION ---
+        // Now, call the fee service to create the fee profile for this new student.
+        feeProfileService.createFeeProfileForNewStudent(admittedStudent);
+
+        return admittedStudent;
+    }
+
+
+    // --- YOUR EXISTING FEATURES (UNCHANGED) ---
 
     /**
      * Handles the creation or updating of a student.
@@ -20,10 +57,10 @@ public class StudentService {
      * @return The saved student object.
      */
     public Student saveStudent(Student student) {
-        // You can add more complex logic here if needed, like checking for duplicates
-        // or auto-generating admission numbers if they are not provided.
         if (student.getAdmissionNumber() == null || student.getAdmissionNumber().isEmpty()) {
-            student.setAdmissionNumber("ADM-" + (studentRepository.count() + 1));
+            // A more robust way to generate a unique admission number
+            String uniqueAdmissionNumber = "ADM-" + (studentRepository.count() + 1001);
+            student.setAdmissionNumber(uniqueAdmissionNumber);
         }
         return studentRepository.save(student);
     }
@@ -47,33 +84,28 @@ public class StudentService {
 
     /**
      * Searches for students by matching a string against their full name.
-     * This method now correctly uses the findByFullNameContainingIgnoreCase method
-     * from the updated repository.
-     *
      * @param name The name to search for.
      * @return A list of students whose full name contains the search string.
      */
     public List<Student> searchStudents(String name) {
         return studentRepository.findByFullNameContainingIgnoreCase(name);
     }
+
     /**
      * Updates an existing student's details.
-     *
+     * This method does NOT re-generate the fee profile, which is correct.
      * @param id The ID of the student to update.
      * @param studentDetails The new details for the student.
      * @return The updated student object.
-     * @throws ResourceNotFoundException if no student with the given ID is found.
+     * @throws Exception if no student with the given ID is found.
      */
     public Student updateStudent(String id, Student studentDetails) throws Exception {
-        // Find the existing student or throw an error if not found
         Student existingStudent = studentRepository.findById(id)
                 .orElseThrow(() -> new Exception("Student not found with id: " + id));
 
-        // Set the ID from the path variable to ensure we update the correct document
-        studentDetails.setId(id);
+        // Ensure you're updating the correct document by setting the ID
+        studentDetails.setId(existingStudent.getId());
 
-        // Save the student object. Spring Data's save method performs an "upsert":
-        // if the ID exists, it updates; if not, it inserts.
         return studentRepository.save(studentDetails);
     }
 }

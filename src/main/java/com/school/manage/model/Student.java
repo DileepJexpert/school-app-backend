@@ -5,6 +5,10 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDate;
 
+/**
+ * Represents the primary document for a student in the 'students' collection.
+ * This class holds all the core information about a student, captured during admission.
+ */
 @Data
 @Document(collection = "students")
 public class Student {
@@ -22,11 +26,19 @@ public class Student {
     private String motherTongue;
     private String aadharNumber;
 
-    // --- Admission Details ---
+    // --- Admission & Academic Details ---
     private String classForAdmission;
     private String academicYear;
     private LocalDate dateOfAdmission;
     private String admissionNumber;
+
+    /**
+     * The student's roll number in their assigned class.
+     * This is a new field added for easy identification and for denormalization
+     * into the StudentFeeProfile.
+     */
+    private String rollNumber;
+
 
     // --- Embedded Objects for nested details ---
     private ParentDetails parentDetails;

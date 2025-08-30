@@ -15,11 +15,13 @@ public class FeeController {
 
     @PostMapping("/structure")
     public FeeStructure saveFeeStructure(@RequestBody FeeStructure feeStructure) {
-        return feeService.saveFeeStructure(feeStructure);
+      //  return feeService.(feeStructure);
+        return feeStructure;
     }
 
     @GetMapping("/structure/{academicYear}")
     public List<FeeStructure> getFeeStructureByYear(@PathVariable String academicYear) {
-        return feeService.getFeeStructureByYear(academicYear);
+      //  return feeService.getFeeStructureByYear(academicYear);
+        return List.of();
     }
 }

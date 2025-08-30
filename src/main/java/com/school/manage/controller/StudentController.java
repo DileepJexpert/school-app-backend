@@ -11,22 +11,25 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/students")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*") // For production, specify allowed origins
 public class StudentController {
 
     private final StudentService studentService;
 
     /**
-     * API endpoint to handle new student admissions or update existing student data.
-     * Your Flutter app will send a POST request with the form data to this URL.
-     * This method now correctly calls the `saveStudent` method from the service.
+     * --- MODIFIED FOR FEE AUTOMATION ---
+     * API endpoint to handle a new student admission.
+     * This now calls the `admitStudent` service method, which saves the student
+     * AND automatically generates their fee profile in a single transaction.
      *
-     * @param student The incoming student data, automatically mapped from JSON.
-     * @return The newly created or updated student data with a 201 Created status.
+     * @param student The incoming student data from the admission form.
+     * @return The newly created student data with a 201 Created status.
      */
     @PostMapping("/add")
-    public ResponseEntity<Student> addOrUpdateStudent(@RequestBody Student student) {
-        Student savedStudent = studentService.saveStudent(student);
-        return new ResponseEntity<>(savedStudent, HttpStatus.CREATED);
+    public ResponseEntity<Student> admitNewStudent(@RequestBody Student student) {
+        // This is the crucial change: calling the orchestrator method.
+        Student admittedStudent = studentService.admitStudent(student);
+        return new ResponseEntity<>(admittedStudent, HttpStatus.CREATED);
     }
 
     /**
@@ -40,9 +43,7 @@ public class StudentController {
     }
 
     /**
-     * --- NEW ENDPOINT ---
      * API endpoint to get a single student by their unique ID.
-     * This is what the StudentDetailPage in your Flutter app will call.
      *
      * @param id The ID of the student to retrieve.
      * @return The student data if found (200 OK), or a 404 Not Found status.
@@ -56,7 +57,6 @@ public class StudentController {
 
     /**
      * API endpoint to search for students by name.
-     * This now correctly calls the updated search method in the service.
      *
      * @param name The name to search for.
      * @return A list of matching students.
@@ -67,10 +67,9 @@ public class StudentController {
         return ResponseEntity.ok(students);
     }
 
-    // ... inside StudentController.java
-
     /**
      * API endpoint to update an existing student.
+     * This correctly calls the `updateStudent` method, which does NOT re-generate fees.
      *
      * @param id The ID of the student from the URL path.
      * @param student The updated student data from the request body.
