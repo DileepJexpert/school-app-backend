@@ -46,4 +46,15 @@ public class FeeStructureController {
         List<FeeStructure> structures = feeStructureService.getFeeStructuresByYear(year);
         return ResponseEntity.ok(structures);
     }
+
+    /**
+     * Deletes a single fee structure by its MongoDB ID.
+     * Previously missing — the Flutter UI was calling DELETE /api/feestructures/{id}
+     * which returned 404 every time.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteFeeStructure(@PathVariable String id) {
+        feeStructureService.deleteFeeStructure(id);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -8,9 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Service class containing the business logic for managing master Fee Structures.
- */
 @Service
 @RequiredArgsConstructor
 public class FeeStructureService {
@@ -18,33 +15,36 @@ public class FeeStructureService {
     private final FeeStructureRepository feeStructureRepository;
 
     /**
-     * Saves a list of fee structures for an academic year.
-     * To prevent duplicates, it first deletes any existing structures for that year
-     * before saving the new ones.
+     * Upserts a list of fee structures.
      *
-     * @param feeStructures The list of new fee structures to save.
+     * BUG FIX: The previous implementation called deleteByAcademicYear() before saving,
+     * which wiped ALL structures for the year every time a single structure was added.
+     * Now uses per-item upsert: if a structure for the same class + year already exists,
+     * its _id is reused so MongoDB updates it in-place. New class entries are inserted.
      */
     @Transactional
     public void saveFeeStructures(List<FeeStructure> feeStructures) {
         if (feeStructures == null || feeStructures.isEmpty()) {
-            return; // Do nothing if the list is empty
+            return;
         }
+        for (FeeStructure structure : feeStructures) {
+            // Reuse the existing _id if this class+year combo already has a record
+            feeStructureRepository
+                    .findByClassNameAndAcademicYear(structure.getClassName(), structure.getAcademicYear())
+                    .ifPresent(existing -> structure.setId(existing.getId()));
+            feeStructureRepository.save(structure);
+        }
+    }
 
-        // Get the academic year from the first item (assuming all are for the same year)
-        String academicYear = feeStructures.get(0).getAcademicYear();
-
-        // Delete all existing fee structures for this academic year to ensure a clean update
-        feeStructureRepository.deleteByAcademicYear(academicYear);
-
-        // Save the new fee structures
-        feeStructureRepository.saveAll(feeStructures);
+    /**
+     * Deletes a single fee structure by its ID.
+     */
+    public void deleteFeeStructure(String id) {
+        feeStructureRepository.deleteById(id);
     }
 
     /**
      * Retrieves all fee structures for a given academic year.
-     *
-     * @param academicYear The year to search for.
-     * @return A list of fee structures.
      */
     public List<FeeStructure> getFeeStructuresByYear(String academicYear) {
         return feeStructureRepository.findByAcademicYear(academicYear);

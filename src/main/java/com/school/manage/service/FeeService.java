@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
@@ -82,42 +83,93 @@ public class FeeService {
     }
 
     /**
-     * --- CORRECTED SEARCH LOGIC ---
-     * This method now builds the query by adding criteria directly to the Query object,
-     * which is a more reliable and standard approach.
+     * Searches for students across TWO collections:
+     *
+     * 1. student_fee_profiles — students who already have a fee profile (happy path).
+     * 2. students             — students admitted before a fee structure was set up,
+     *                           so no profile was auto-created for them. Returned with
+     *                           zero fee amounts so the admin can still select them.
+     *
+     * This ensures students are always findable regardless of whether the admin
+     * configured the fee structure before or after the student's admission.
      */
     public List<StudentFeeProfileResponse> searchStudents(String name, String className, String rollNumber) {
         log.info("Searching for students with name: [{}], class: [{}], roll: [{}]", name, className, rollNumber);
 
-        // The Query object will hold all our search conditions
-        final Query query = new Query();
-        final List<Criteria> criteria = new ArrayList<>();
-
-        // Add criteria to the list only if the parameter is provided
+        // ── 1. Search student_fee_profiles ───────────────────────────────────
+        final Query profileQuery = new Query();
+        final List<Criteria> profileCriteria = new ArrayList<>();
         if (name != null && !name.isEmpty()) {
-            // Use a regex for a case-insensitive "contains" search
-            criteria.add(Criteria.where("name").regex(name, "i"));
+            profileCriteria.add(Criteria.where("name").regex(name, "i"));
         }
         if (className != null && !className.isEmpty()) {
-            criteria.add(Criteria.where("className").is(className));
+            profileCriteria.add(Criteria.where("className").is(className));
         }
         if (rollNumber != null && !rollNumber.isEmpty()) {
-            criteria.add(Criteria.where("rollNumber").is(rollNumber));
+            profileCriteria.add(Criteria.where("rollNumber").is(rollNumber));
         }
-
-        // If we have criteria, combine them with an "AND" operator
-        if (!criteria.isEmpty()) {
-            query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[0])));
+        if (!profileCriteria.isEmpty()) {
+            profileQuery.addCriteria(new Criteria().andOperator(profileCriteria.toArray(new Criteria[0])));
         }
+        List<StudentFeeProfile> profileStudents = mongoTemplate.find(profileQuery, StudentFeeProfile.class);
 
-        // Execute the query against the StudentFeeProfile collection
-        List<StudentFeeProfile> foundStudents = mongoTemplate.find(query, StudentFeeProfile.class);
+        // Collect IDs already covered by profiles so we don't duplicate them below
+        Set<String> profileIds = profileStudents.stream()
+                .map(StudentFeeProfile::getId)
+                .collect(Collectors.toSet());
 
-        log.info("Found {} student(s) matching the dynamic criteria.", foundStudents.size());
-
-        return foundStudents.stream()
-                .map(this::mapToStudentFeeProfileResponse)
+        // ── 2. Search students collection for those WITHOUT a fee profile ─────
+        final Query studentQuery = new Query();
+        final List<Criteria> studentCriteria = new ArrayList<>();
+        if (name != null && !name.isEmpty()) {
+            studentCriteria.add(Criteria.where("fullName").regex(name, "i"));
+        }
+        if (className != null && !className.isEmpty()) {
+            studentCriteria.add(Criteria.where("classForAdmission").is(className));
+        }
+        if (rollNumber != null && !rollNumber.isEmpty()) {
+            studentCriteria.add(Criteria.where("rollNumber").is(rollNumber));
+        }
+        if (!studentCriteria.isEmpty()) {
+            studentQuery.addCriteria(new Criteria().andOperator(studentCriteria.toArray(new Criteria[0])));
+        }
+        List<Student> rawStudents = mongoTemplate.find(studentQuery, Student.class);
+        List<Student> studentsWithoutProfile = rawStudents.stream()
+                .filter(s -> !profileIds.contains(s.getId()))
                 .collect(Collectors.toList());
+
+        // ── 3. Merge and return ───────────────────────────────────────────────
+        List<StudentFeeProfileResponse> result = new ArrayList<>();
+        result.addAll(profileStudents.stream()
+                .map(this::mapToStudentFeeProfileResponse)
+                .collect(Collectors.toList()));
+        result.addAll(studentsWithoutProfile.stream()
+                .map(this::mapStudentToMinimalFeeProfileResponse)
+                .collect(Collectors.toList()));
+
+        log.info("Found {} student(s) — {} with fee profile, {} without.",
+                result.size(), profileStudents.size(), studentsWithoutProfile.size());
+        return result;
+    }
+
+    /** Minimal fee profile response for students who have no StudentFeeProfile yet. */
+    private StudentFeeProfileResponse mapStudentToMinimalFeeProfileResponse(Student student) {
+        String parentName = (student.getParentDetails() != null)
+                ? student.getParentDetails().getFatherName() : "";
+        String rollNumber = (student.getRollNumber() != null) ? student.getRollNumber() : "";
+        return StudentFeeProfileResponse.builder()
+                .id(student.getId())
+                .name(student.getFullName())
+                .className(student.getClassForAdmission())
+                .rollNumber(rollNumber)
+                .parentName(parentName)
+                .totalFees(BigDecimal.ZERO)
+                .paidFees(BigDecimal.ZERO)
+                .dueFees(BigDecimal.ZERO)
+                .totalDiscountGiven(BigDecimal.ZERO)
+                .feeInstallments(Collections.emptyList())
+                .lastPayment(null)
+                .build();
     }
 
     public FeeReportResponse generateCollectionReport(LocalDate startDate, LocalDate endDate) {
