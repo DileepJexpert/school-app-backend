@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -132,8 +133,11 @@ public class FeeService {
                 .collect(Collectors.toSet());
 
         // ── 2. Search students collection for those WITHOUT a fee profile ─────
+        // Always exclude ENQUIRY-status records — they are not yet admitted students
+        // and must never appear in the fee collection screen.
         final Query studentQuery = new Query();
         final List<Criteria> studentCriteria = new ArrayList<>();
+        studentCriteria.add(Criteria.where("status").ne("ENQUIRY"));
         if (name != null && !name.isEmpty()) {
             studentCriteria.add(Criteria.where("fullName").regex(name, "i"));
         }
@@ -143,9 +147,7 @@ public class FeeService {
         if (rollNumber != null && !rollNumber.isEmpty()) {
             studentCriteria.add(Criteria.where("rollNumber").is(rollNumber));
         }
-        if (!studentCriteria.isEmpty()) {
-            studentQuery.addCriteria(new Criteria().andOperator(studentCriteria.toArray(new Criteria[0])));
-        }
+        studentQuery.addCriteria(new Criteria().andOperator(studentCriteria.toArray(new Criteria[0])));
         List<Student> rawStudents = mongoTemplate.find(studentQuery, Student.class);
         List<Student> studentsWithoutProfile = rawStudents.stream()
                 .filter(s -> !profileIds.contains(s.getId()))
