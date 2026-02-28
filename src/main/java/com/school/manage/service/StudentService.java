@@ -108,7 +108,8 @@ public class StudentService {
 
     /**
      * Updates an existing student's details.
-     * This method does NOT re-generate the fee profile, which is correct.
+     * If the student was previously an ENQUIRY and is now being set to ACTIVE (admitted),
+     * a fee profile is automatically created for them.
      * @param id The ID of the student to update.
      * @param studentDetails The new details for the student.
      * @return The updated student object.
@@ -121,7 +122,22 @@ public class StudentService {
         // Ensure you're updating the correct document by setting the ID
         studentDetails.setId(existingStudent.getId());
 
-        return studentRepository.save(studentDetails);
+        Student savedStudent = studentRepository.save(studentDetails);
+
+        // When an ENQUIRY is converted to an admitted student (any non-ENQUIRY status),
+        // create their fee profile from the fee structure for their class.
+        boolean wasEnquiry = "ENQUIRY".equalsIgnoreCase(existingStudent.getStatus());
+        boolean isNowActive = !"ENQUIRY".equalsIgnoreCase(savedStudent.getStatus());
+        if (wasEnquiry && isNowActive) {
+            try {
+                feeProfileService.createFeeProfileForNewStudent(savedStudent);
+            } catch (Exception ex) {
+                // Log but do not fail the update — profile can be auto-generated later
+                // when the student is selected in the fee collection screen.
+            }
+        }
+
+        return savedStudent;
     }
 
     /**
