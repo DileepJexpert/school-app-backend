@@ -123,4 +123,12 @@ public class StudentService {
 
         return studentRepository.save(studentDetails);
     }
+
+    /**
+     * Deletes a student (or enquiry) record by ID.
+     * @param id The MongoDB document ID to delete.
+     */
+    public void deleteStudent(String id) {
+        studentRepository.deleteById(id);
+    }
 }

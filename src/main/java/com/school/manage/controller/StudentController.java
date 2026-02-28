@@ -94,8 +94,19 @@ public class StudentController {
         try {
             Student updatedStudent = studentService.updateStudent(id, student);
             return ResponseEntity.ok(updatedStudent);
-        } catch (Exception e) { // Catch ResourceNotFoundException or similar
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /**
+     * API endpoint to delete a student or enquiry record by ID.
+     * @param id The ID of the record to delete.
+     * @return 204 No Content on success.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteStudent(@PathVariable String id) {
+        studentService.deleteStudent(id);
+        return ResponseEntity.noContent().build();
     }
 }
