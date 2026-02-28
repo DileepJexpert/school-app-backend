@@ -5,6 +5,7 @@ import com.school.manage.exception.ResourceNotFoundException;
 import com.school.manage.model.*;
 import com.school.manage.repository.PaymentRecordRepository;
 import com.school.manage.repository.StudentFeeProfileRepository;
+import com.school.manage.repository.StudentRepository;
 import com.school.manage.util.ReceiptGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,8 @@ public class FeeService {
     private final StudentFeeProfileRepository studentFeeProfileRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final MongoTemplate mongoTemplate;
+    private final StudentRepository studentRepository;
+    private final FeeProfileService feeProfileService;
 
     @Transactional
     public PaymentRecordResponse collectFee(FeePaymentRequest request) {
@@ -77,10 +80,32 @@ public class FeeService {
 
     public StudentFeeProfileResponse getStudentFeeProfile(String studentId) {
         log.info("Fetching fee profile for student ID: {}", studentId);
-        StudentFeeProfile profile = studentFeeProfileRepository.findById(studentId)
+
+        // Fast path: profile already exists
+        StudentFeeProfile profile = studentFeeProfileRepository.findById(studentId).orElse(null);
+        if (profile != null) {
+            log.info("Found existing profile for student: {}", profile.getName());
+            return mapToStudentFeeProfileResponse(profile);
+        }
+
+        // Fallback: student was admitted before the fee structure was configured.
+        // Attempt to auto-generate the profile now using the fee structure, then persist it.
+        log.warn("No fee profile found for student ID: {}. Attempting auto-generation from fee structure.", studentId);
+        Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with ID: " + studentId));
-        log.info("Found profile for student: {}", profile.getName());
-        return mapToStudentFeeProfileResponse(profile);
+        feeProfileService.createFeeProfileForNewStudent(student);
+
+        // Return the freshly created profile, or a minimal stub if no fee structure exists yet
+        return studentFeeProfileRepository.findById(studentId)
+                .map(p -> {
+                    log.info("Auto-generated fee profile for student: {}", p.getName());
+                    return mapToStudentFeeProfileResponse(p);
+                })
+                .orElseGet(() -> {
+                    log.warn("No fee structure found for class '{}'. Returning minimal profile for student: {}",
+                            student.getClassForAdmission(), student.getFullName());
+                    return mapStudentToMinimalFeeProfileResponse(student);
+                });
     }
 
     /**
