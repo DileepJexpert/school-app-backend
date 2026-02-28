@@ -43,6 +43,14 @@ public class StudentFeeController {
      * @param rollNumber The roll number to search for.
      * @return A list of students matching the criteria.
      */
+    /**
+     * Returns all students with outstanding dues (dueFees > 0), sorted highest first.
+     */
+    @GetMapping("/fees/dues")
+    public ResponseEntity<List<StudentFeeProfileResponse>> getOutstandingDues() {
+        return ResponseEntity.ok(feeService.getOutstandingDues());
+    }
+
     @GetMapping("/fees/search")
     public ResponseEntity<List<StudentFeeProfileResponse>> searchStudents(
             @RequestParam(required = false) String name,

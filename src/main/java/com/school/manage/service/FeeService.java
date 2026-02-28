@@ -93,6 +93,19 @@ public class FeeService {
      * This ensures students are always findable regardless of whether the admin
      * configured the fee structure before or after the student's admission.
      */
+    /**
+     * Returns all student fee profiles that have an outstanding due amount greater than zero,
+     * sorted by due amount descending (highest dues first).
+     */
+    public List<StudentFeeProfileResponse> getOutstandingDues() {
+        return studentFeeProfileRepository.findAll()
+                .stream()
+                .filter(p -> p.getDueFees() != null && p.getDueFees().compareTo(java.math.BigDecimal.ZERO) > 0)
+                .sorted(Comparator.comparing(StudentFeeProfile::getDueFees).reversed())
+                .map(this::mapToStudentFeeProfileResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<StudentFeeProfileResponse> searchStudents(String name, String className, String rollNumber) {
         log.info("Searching for students with name: [{}], class: [{}], roll: [{}]", name, className, rollNumber);
 
