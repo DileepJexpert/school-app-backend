@@ -33,6 +33,20 @@ public class StudentController {
     }
 
     /**
+     * API endpoint to save an enquiry record.
+     * Does NOT generate a fee profile — the student is not yet admitted.
+     * Status is forced to ENQUIRY regardless of what was sent.
+     *
+     * @param student Basic enquiry data (name, contact, class interested).
+     * @return The saved enquiry student with a 201 Created status.
+     */
+    @PostMapping("/enquiry")
+    public ResponseEntity<Student> saveEnquiry(@RequestBody Student student) {
+        Student saved = studentService.saveEnquiry(student);
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    }
+
+    /**
      * API endpoint to get a list of all students.
      * @return A list of all students with a 200 OK status.
      */

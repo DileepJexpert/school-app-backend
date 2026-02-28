@@ -48,6 +48,21 @@ public class StudentService {
     }
 
 
+    /**
+     * Saves an enquiry record WITHOUT generating a fee profile.
+     * Used when a prospective student walks in to enquire — not yet admitted.
+     * @param student The enquiry data (status will be forced to ENQUIRY).
+     * @return The saved enquiry student object.
+     */
+    public Student saveEnquiry(Student student) {
+        student.setStatus("ENQUIRY");
+        if (student.getAdmissionNumber() == null || student.getAdmissionNumber().isEmpty()) {
+            String uniqueNumber = "ENQ-" + (studentRepository.count() + 1001);
+            student.setAdmissionNumber(uniqueNumber);
+        }
+        return studentRepository.save(student);
+    }
+
     // --- YOUR EXISTING FEATURES (UNCHANGED) ---
 
     /**
