@@ -44,13 +44,20 @@ public class FeeStructureService {
 
             // Retroactively create fee profiles for students already admitted to this class
             // who were skipped at admission time because the fee structure did not exist yet.
+            // Each profile creation is isolated in its own try-catch so a failure here
+            // never rolls back the fee structure save above.
             List<Student> existingStudents = studentRepository
                     .findByClassForAdmissionAndAcademicYear(structure.getClassName(), structure.getAcademicYear());
             int created = 0;
             for (Student student : existingStudents) {
                 if (!studentFeeProfileRepository.existsById(student.getId())) {
-                    feeProfileService.createFeeProfileForNewStudent(student);
-                    created++;
+                    try {
+                        feeProfileService.createFeeProfileForNewStudent(student);
+                        created++;
+                    } catch (Exception ex) {
+                        log.error("Failed to retroactively create fee profile for student '{}' ({}). Skipping.",
+                                student.getFullName(), student.getId(), ex);
+                    }
                 }
             }
             if (created > 0) {

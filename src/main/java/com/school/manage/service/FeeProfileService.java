@@ -76,9 +76,11 @@ public class FeeProfileService {
 
         // Create 12 installments for the combined monthly fees.
         if (totalMonthlyAmount.compareTo(BigDecimal.ZERO) > 0) {
+            LocalDate admissionDate = student.getDateOfAdmission() != null
+                    ? student.getDateOfAdmission() : LocalDate.now();
             for (int i = 0; i < 12; i++) {
                 Month month = Month.APRIL.plus(i);
-                int year = student.getDateOfAdmission().getYear();
+                int year = admissionDate.getYear();
                 if (month.getValue() < Month.APRIL.getValue()) {
                     year += 1;
                 }
@@ -101,7 +103,8 @@ public class FeeProfileService {
                     installment.setInstallmentId(UUID.randomUUID().toString());
                     installment.setInstallmentName(component.getFeeName());
                     installment.setAmountDue(component.getAmount());
-                    installment.setDueDate(student.getDateOfAdmission().plusDays(30));
+                    installment.setDueDate((student.getDateOfAdmission() != null
+                            ? student.getDateOfAdmission() : LocalDate.now()).plusDays(30));
                     installment.setStatus("PENDING");
                     allInstallments.add(installment);
                 });
