@@ -51,8 +51,21 @@ public class StudentController {
      * @return A list of all students with a 200 OK status.
      */
     @GetMapping
-    public ResponseEntity<List<Student>> getAllStudents() {
+    public ResponseEntity<List<Student>> getAllStudents(
+            @RequestParam(required = false) String className,
+            @RequestParam(required = false) String academicYear) {
         List<Student> students = studentService.getAllStudents();
+        // Filter by class if provided (used by Results bulk-entry screen)
+        if (className != null && !className.isBlank()) {
+            students = students.stream()
+                    .filter(s -> className.equals(s.getClassForAdmission()))
+                    .toList();
+        }
+        if (academicYear != null && !academicYear.isBlank()) {
+            students = students.stream()
+                    .filter(s -> academicYear.equals(s.getAcademicYear()))
+                    .toList();
+        }
         return ResponseEntity.ok(students);
     }
 
