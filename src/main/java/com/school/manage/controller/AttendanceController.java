@@ -62,6 +62,21 @@ public class AttendanceController {
     }
 
     /**
+     * Get attendance records for a class within a date range.
+     *
+     * GET /api/attendance/class/{className}/range?from=2024-06-01&to=2024-06-30&academicYear=2024-25
+     */
+    @GetMapping("/class/{className}/range")
+    public ResponseEntity<List<Attendance>> getClassAttendanceRange(
+            @PathVariable String className,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam String academicYear) {
+        return ResponseEntity.ok(
+                attendanceService.getAttendanceByClassAndDateRange(className, academicYear, from, to));
+    }
+
+    /**
      * Get attendance summary for a student in an academic year.
      *
      * GET /api/attendance/student/{studentId}/summary?academicYear=2024-25
