@@ -590,8 +590,8 @@ public class ResultService {
         return resultRepository.save(r);
     }
 
-    public List<StudentResult> getResultsByClassAndYear(String className, int year) {
-        return resultRepository.findByClassNameAndYear(className, year);
+    public List<StudentResult> getResultsByClassAndYear(String className, String academicYear) {
+        return resultRepository.findByClassNameAndAcademicYear(className, academicYear);
     }
 
     public List<StudentResult> getResultsForStudent(String studentId) {
