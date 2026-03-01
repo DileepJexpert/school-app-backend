@@ -1,7 +1,9 @@
 package com.school.manage.repository;
 
 import com.school.manage.model.StudentFeeProfile;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import java.util.List;
 
 /**
@@ -25,4 +27,12 @@ public interface StudentFeeProfileRepository extends MongoRepository<StudentFeeP
      * @return A list of matching student fee profiles.
      */
     List<StudentFeeProfile> findByClassName(String className);
+
+    /**
+     * Returns only profiles with an outstanding balance (dueFees > 0).
+     * Uses a server-side MongoDB filter — avoids loading the entire collection
+     * into memory, which is critical for schools with 500+ students.
+     */
+    @Query("{ 'dueFees': { $gt: 0 } }")
+    List<StudentFeeProfile> findAllWithOutstandingDues(Sort sort);
 }
