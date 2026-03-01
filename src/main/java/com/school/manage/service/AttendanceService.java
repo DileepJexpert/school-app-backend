@@ -94,6 +94,15 @@ public class AttendanceService {
     }
 
     /**
+     * Returns all attendance records for a class within a date range.
+     */
+    public List<Attendance> getAttendanceByClassAndDateRange(
+            String className, String academicYear, LocalDate from, LocalDate to) {
+        return attendanceRepository.findByClassNameAndAcademicYearAndDateBetween(
+                className, academicYear, from, to);
+    }
+
+    /**
      * Returns a single attendance record by ID.
      */
     public Attendance getAttendanceById(String id) {
