@@ -23,10 +23,10 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Sort;
 
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
@@ -124,10 +124,10 @@ public class FeeService {
      * sorted by due amount descending (highest dues first).
      */
     public List<StudentFeeProfileResponse> getOutstandingDues() {
-        return studentFeeProfileRepository.findAll()
+        // Server-side filter — avoids loading every profile into memory
+        return studentFeeProfileRepository
+                .findAllWithOutstandingDues(Sort.by(Sort.Direction.DESC, "dueFees"))
                 .stream()
-                .filter(p -> p.getDueFees() != null && p.getDueFees().compareTo(java.math.BigDecimal.ZERO) > 0)
-                .sorted(Comparator.comparing(StudentFeeProfile::getDueFees).reversed())
                 .map(this::mapToStudentFeeProfileResponse)
                 .collect(Collectors.toList());
     }

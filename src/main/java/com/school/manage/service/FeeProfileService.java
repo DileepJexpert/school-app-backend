@@ -115,6 +115,7 @@ public class FeeProfileService {
         profile.setId(student.getId());
         profile.setName(student.getFullName());
         profile.setClassName(student.getClassForAdmission());
+        profile.setAcademicYear(student.getAcademicYear());
         profile.setRollNumber(student.getRollNumber());
         profile.setParentName(student.getParentDetails() != null ? student.getParentDetails().getFatherName() : null);
         profile.setTotalFees(totalAnnualFee);

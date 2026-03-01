@@ -14,6 +14,7 @@ public class StudentFeeProfile {
     private String id;
     private String name;
     private String className;
+    private String academicYear;
     private String rollNumber;
     private String parentName;
 
@@ -29,9 +30,4 @@ public class StudentFeeProfile {
 
     private List<FeeInstallment> feeInstallments;
     private PaymentRecord lastPayment;
-
-    // Backward-compatible getter
-    public List<FeeInstallment> getMonthlyFees() {
-        return this.feeInstallments;
-    }
 }

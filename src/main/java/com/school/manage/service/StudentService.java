@@ -3,15 +3,16 @@ package com.school.manage.service;
 import com.school.manage.model.Student;
 import com.school.manage.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // Import Transactional
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
-// @RequiredArgsConstructor is great, but we'll switch to @Autowired for clarity with the new service
 public class StudentService {
 
     private final StudentRepository studentRepository;
@@ -129,11 +130,21 @@ public class StudentService {
         boolean wasEnquiry = "ENQUIRY".equalsIgnoreCase(existingStudent.getStatus());
         boolean isNowActive = !"ENQUIRY".equalsIgnoreCase(savedStudent.getStatus());
         if (wasEnquiry && isNowActive) {
+            // Replace the temporary ENQ- enquiry number with a proper ADM- admission number.
+            if (savedStudent.getAdmissionNumber() != null &&
+                    savedStudent.getAdmissionNumber().startsWith("ENQ-")) {
+                String admNumber = "ADM-" + (studentRepository.count() + 1000);
+                savedStudent.setAdmissionNumber(admNumber);
+                savedStudent = studentRepository.save(savedStudent);
+                log.info("Converted enquiry number to admission number '{}' for student '{}'",
+                        admNumber, savedStudent.getFullName());
+            }
             try {
                 feeProfileService.createFeeProfileForNewStudent(savedStudent);
             } catch (Exception ex) {
-                // Log but do not fail the update — profile can be auto-generated later
-                // when the student is selected in the fee collection screen.
+                log.error("Failed to create fee profile for student '{}' ({}) during ENQUIRY→ACTIVE conversion. " +
+                          "Profile will be auto-generated on next access.",
+                          savedStudent.getFullName(), savedStudent.getId(), ex);
             }
         }
 
