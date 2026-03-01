@@ -167,10 +167,10 @@ public class ResultController {
         return resultService.addResult(studentResult);
     }
 
-    @GetMapping("/class/{className}/year/{year}")
+    @GetMapping("/class/{className}/year/{academicYear}")
     public List<StudentResult> getResultsByClassAndYear(
             @PathVariable String className,
-            @PathVariable int year) {
-        return resultService.getResultsByClassAndYear(className, year);
+            @PathVariable String academicYear) {
+        return resultService.getResultsByClassAndYear(className, academicYear);
     }
 }

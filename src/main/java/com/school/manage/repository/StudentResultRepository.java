@@ -6,11 +6,8 @@ import java.util.List;
 
 public interface StudentResultRepository extends MongoRepository<StudentResult, String> {
 
-    // ── Legacy (kept for backward compatibility) ──────────────────────────
-    List<StudentResult> findByClassNameAndYear(String className, int year);
-    List<StudentResult> findByStudentId(String studentId);
-
     // ── Core queries ──────────────────────────────────────────────────────
+    List<StudentResult> findByStudentId(String studentId);
     List<StudentResult> findByClassNameAndAcademicYear(String className, String academicYear);
 
     List<StudentResult> findByClassNameAndAcademicYearAndExamType(
