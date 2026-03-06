@@ -70,7 +70,7 @@ public class ResultService {
         r.setPercentage(pct);
         r.setGrade(computeGrade(pct));
         r.setGradePoint(computeGradePoint(pct));
-        r.setIsPassed(pct >= 33.0);
+        r.setPassed(pct >= 33.0);
     }
 
     // ─────────────────────────────────────────────────────────────────────
