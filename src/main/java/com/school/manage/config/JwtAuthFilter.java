@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +25,7 @@ import java.util.List;
  * MongoDB database is selected — the JWT-based tenant takes precedence over
  * the X-Tenant-ID header to prevent tenant-hopping attacks.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -36,7 +38,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
+        final String requestUri = request.getRequestURI();
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.debug("[JwtAuthFilter] No Bearer token on request: {} {}", request.getMethod(), requestUri);
             chain.doFilter(request, response);
             return;
         }
@@ -50,9 +55,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 UserRole role   = jwtService.extractRole(jwt);
                 String tenantId = jwtService.extractTenantId(jwt);
 
+                log.debug("[JwtAuthFilter] Valid JWT — userId='{}', role='{}', tenant='{}', uri='{}'",
+                        userId, role, tenantId, requestUri);
+
                 // Pin the request to the tenant from the JWT (trusted source)
                 if (tenantId != null && !tenantId.isBlank()) {
                     TenantContext.setTenant(tenantId);
+                    log.debug("[JwtAuthFilter] TenantContext set to '{}' from JWT", tenantId);
                 }
 
                 var authority = new SimpleGrantedAuthority("ROLE_" + role.name());
@@ -61,9 +70,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             // Invalid token → request proceeds as unauthenticated;
             // Spring Security will reject it if the endpoint requires auth.
+            log.warn("[JwtAuthFilter] Invalid JWT on '{}': {}", requestUri, e.getMessage());
         }
 
         chain.doFilter(request, response);

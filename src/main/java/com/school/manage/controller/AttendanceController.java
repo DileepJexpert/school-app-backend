@@ -5,6 +5,7 @@ import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.model.Attendance;
 import com.school.manage.service.AttendanceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/attendance")
 @RequiredArgsConstructor
@@ -26,7 +28,11 @@ public class AttendanceController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<List<Attendance>> markAttendance(
             @RequestBody AttendanceRequestDto request) {
+        log.info("[AttendanceController] POST /api/attendance/mark — class='{}', date='{}', count={}",
+                request.getClassName(), request.getDate(),
+                request.getAttendanceList() != null ? request.getAttendanceList().size() : 0);
         List<Attendance> saved = attendanceService.markBulkAttendance(request);
+        log.info("[AttendanceController] Attendance marked: {} records saved", saved.size());
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 

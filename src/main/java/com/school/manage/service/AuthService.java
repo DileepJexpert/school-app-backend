@@ -5,7 +5,7 @@ import com.school.manage.dto.auth.AuthResponse;
 import com.school.manage.dto.auth.LoginRequest;
 import com.school.manage.model.User;
 import com.school.manage.tenant.TenantContext;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class AuthService {
 
@@ -42,8 +43,13 @@ public class AuthService {
      * Looks up the user in the tenant DB set by TenantContext.
      */
     public AuthResponse loginTenant(LoginRequest req) {
+        log.info("[AuthService] Tenant login attempt: email='{}', tenant='{}'",
+                req.getEmail(), TenantContext.getTenant());
         User user = findInTenantDb(req.getEmail());
-        return authenticate(user, req.getPassword(), mongoTemplate);
+        AuthResponse resp = authenticate(user, req.getPassword(), mongoTemplate);
+        log.info("[AuthService] Tenant login SUCCESS: email='{}', role='{}', tenant='{}'",
+                req.getEmail(), resp.getRole(), resp.getTenantId());
+        return resp;
     }
 
     /**
@@ -51,27 +57,35 @@ public class AuthService {
      * Always looks up in platform_db regardless of tenant context.
      */
     public AuthResponse loginPlatform(LoginRequest req) {
+        log.info("[AuthService] Platform login attempt: email='{}'", req.getEmail());
         User user = findInPlatformDb(req.getEmail());
-        return authenticate(user, req.getPassword(), platformMongoTemplate);
+        AuthResponse resp = authenticate(user, req.getPassword(), platformMongoTemplate);
+        log.info("[AuthService] Platform login SUCCESS: email='{}', role='{}'",
+                req.getEmail(), resp.getRole());
+        return resp;
     }
 
     // ── Token refresh ────────────────────────────────────────────────────────
 
     public AuthResponse refresh(String refreshToken) {
+        log.debug("[AuthService] Token refresh request received.");
         if (!jwtService.isTokenValid(refreshToken)) {
+            log.warn("[AuthService] Token refresh FAILED — invalid or expired refresh token.");
             throw new RuntimeException("Invalid or expired refresh token");
         }
         String userId   = jwtService.extractUserId(refreshToken);
         String tenantId = jwtService.extractTenantId(refreshToken);
+        log.debug("[AuthService] Refreshing token for userId='{}', tenant='{}'", userId, tenantId);
 
         User user = findUserById(userId, tenantId);
         if (user == null || !user.isActive()) {
+            log.warn("[AuthService] Token refresh FAILED — user not found or inactive. userId='{}'", userId);
             throw new RuntimeException("User not found or inactive");
         }
 
         String newToken        = jwtService.generateToken(user);
         String newRefreshToken = jwtService.generateRefreshToken(user);
-
+        log.info("[AuthService] Token refresh SUCCESS for userId='{}', email='{}'", userId, user.getEmail());
         return buildResponse(user, newToken, newRefreshToken);
     }
 
@@ -79,9 +93,11 @@ public class AuthService {
 
     private AuthResponse authenticate(User user, String rawPassword, MongoTemplate template) {
         if (user == null || !user.isActive()) {
+            log.warn("[AuthService] Authentication FAILED — user not found or inactive.");
             throw new RuntimeException("Invalid credentials");
         }
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
+            log.warn("[AuthService] Authentication FAILED — wrong password for email='{}'", user.getEmail());
             throw new RuntimeException("Invalid credentials");
         }
 

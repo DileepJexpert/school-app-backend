@@ -1,6 +1,8 @@
 package com.school.manage.tenant;
 
 import com.mongodb.client.MongoClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
 
 /**
@@ -16,6 +18,7 @@ import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
  */
 public class TenantAwareMongoDatabaseFactory extends SimpleMongoClientDatabaseFactory {
 
+    private static final Logger log = LoggerFactory.getLogger(TenantAwareMongoDatabaseFactory.class);
     private static final String PLATFORM_DB = "platform_db";
     private final MongoClient mongoClient;
 
@@ -31,6 +34,7 @@ public class TenantAwareMongoDatabaseFactory extends SimpleMongoClientDatabaseFa
         String dbName = (tenant != null && !tenant.isBlank())
                 ? tenant + "_db"
                 : PLATFORM_DB;
+        log.debug("[TenantFactory] Resolving DB — tenant='{}' → database='{}'", tenant, dbName);
         return mongoClient.getDatabase(dbName);
     }
 

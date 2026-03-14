@@ -6,6 +6,7 @@ import com.school.manage.dto.auth.UserDto;
 import com.school.manage.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,6 +22,7 @@ import java.util.Map;
  * SCHOOL_ADMIN can create and manage users within their own tenant.
  * SUPER_ADMIN platform user management is done via /platform/users.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class UserController {
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<UserDto> createUser(@Valid @RequestBody CreateUserRequest req) {
+        log.info("[UserController] POST /api/users — email='{}', role='{}'", req.getEmail(), req.getRole());
         return new ResponseEntity<>(userService.createTenantUser(req), HttpStatus.CREATED);
     }
 
@@ -40,6 +43,7 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<List<UserDto>> listUsers() {
+        log.debug("[UserController] GET /api/users");
         return ResponseEntity.ok(userService.listTenantUsers());
     }
 
@@ -47,6 +51,7 @@ public class UserController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<UserDto> getUser(@PathVariable String id) {
+        log.debug("[UserController] GET /api/users/{}", id);
         return ResponseEntity.ok(userService.getTenantUser(id));
     }
 
@@ -55,6 +60,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<UserDto> updateUser(@PathVariable String id,
                                               @Valid @RequestBody CreateUserRequest req) {
+        log.info("[UserController] PUT /api/users/{} — newRole='{}'", id, req.getRole());
         return ResponseEntity.ok(userService.updateTenantUser(id, req));
     }
 
@@ -62,6 +68,7 @@ public class UserController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Void> deactivateUser(@PathVariable String id) {
+        log.info("[UserController] DELETE /api/users/{} (deactivate)", id);
         userService.deactivateUser(id);
         return ResponseEntity.noContent().build();
     }
@@ -72,6 +79,7 @@ public class UserController {
     public ResponseEntity<Map<String, String>> changePassword(
             @Valid @RequestBody ChangePasswordRequest req,
             Authentication auth) {
+        log.info("[UserController] POST /api/users/change-password — userId='{}'", auth.getName());
         userService.changePassword(auth.getName(), req);
         return ResponseEntity.ok(Map.of("message", "Password updated successfully"));
     }

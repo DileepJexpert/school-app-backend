@@ -3,6 +3,7 @@ package com.school.manage.controller;
 import com.school.manage.model.Expense;
 import com.school.manage.service.ExpenseService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/expenses")
 @RequiredArgsConstructor
@@ -27,31 +29,27 @@ public class ExpenseController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        log.debug("[ExpenseController] GET /api/expenses — from='{}', to='{}'", from, to);
         if (from != null && to != null) {
             return ResponseEntity.ok(expenseService.getExpensesByDateRange(from, to));
         }
         return ResponseEntity.ok(expenseService.getAllExpenses());
     }
 
-    /**
-     * Record a new expense.
-     *
-     * POST /api/expenses
-     */
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<Expense> addExpense(@RequestBody Expense expense) {
-        return new ResponseEntity<>(expenseService.addExpense(expense), HttpStatus.CREATED);
+        log.info("[ExpenseController] POST /api/expenses — category='{}', amount='{}'",
+                expense.getCategory(), expense.getAmount());
+        Expense saved = expenseService.addExpense(expense);
+        log.info("[ExpenseController] Expense saved: id='{}'", saved.getId());
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
-    /**
-     * Delete an expense by ID.
-     *
-     * DELETE /api/expenses/{id}
-     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<Void> deleteExpense(@PathVariable String id) {
+        log.info("[ExpenseController] DELETE /api/expenses/{}", id);
         expenseService.deleteExpense(id);
         return ResponseEntity.noContent().build();
     }

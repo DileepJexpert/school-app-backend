@@ -8,6 +8,7 @@ import com.school.manage.model.ExamConfig;
 import com.school.manage.model.StudentResult;
 import com.school.manage.service.ResultService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/results")
 @RequiredArgsConstructor
@@ -26,7 +28,11 @@ public class ResultController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<List<StudentResult>> bulkSaveResults(
             @RequestBody BulkResultRequest request) {
-        return ResponseEntity.ok(resultService.bulkSaveResults(request));
+        log.info("[ResultController] POST /api/results/bulk — class='{}', exam='{}', year='{}'",
+                request.getClassName(), request.getExamType(), request.getAcademicYear());
+        List<StudentResult> saved = resultService.bulkSaveResults(request);
+        log.info("[ResultController] Bulk results saved: {} records", saved.size());
+        return ResponseEntity.ok(saved);
     }
 
     // ── CLASS RESULT SHEET ────────────────────────────────────────────────
