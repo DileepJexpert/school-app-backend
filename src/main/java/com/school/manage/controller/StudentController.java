@@ -3,12 +3,14 @@ package com.school.manage.controller;
 import com.school.manage.model.Student;
 import com.school.manage.service.StudentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/students")
 @RequiredArgsConstructor
@@ -20,37 +22,29 @@ public class StudentController {
     @PostMapping("/add")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> admitNewStudent(@RequestBody Student student) {
-        // This is the crucial change: calling the orchestrator method.
+        log.info("[StudentController] POST /api/students/add — admitting student: name='{}'", student.getFullName());
         Student admittedStudent = studentService.admitStudent(student);
+        log.info("[StudentController] Student admitted: id='{}', admissionNo='{}'",
+                admittedStudent.getId(), admittedStudent.getAdmissionNumber());
         return new ResponseEntity<>(admittedStudent, HttpStatus.CREATED);
     }
 
-    /**
-     * API endpoint to save an enquiry record.
-     * Does NOT generate a fee profile — the student is not yet admitted.
-     * Status is forced to ENQUIRY regardless of what was sent.
-     *
-     * @param student Basic enquiry data (name, contact, class interested).
-     * @return The saved enquiry student with a 201 Created status.
-     */
     @PostMapping("/enquiry")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> saveEnquiry(@RequestBody Student student) {
+        log.info("[StudentController] POST /api/students/enquiry — name='{}'", student.getFullName());
         Student saved = studentService.saveEnquiry(student);
+        log.info("[StudentController] Enquiry saved: id='{}', enquiryNo='{}'", saved.getId(), saved.getAdmissionNumber());
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
-    /**
-     * API endpoint to get a list of all students.
-     * @return A list of all students with a 200 OK status.
-     */
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER')")
     public ResponseEntity<List<Student>> getAllStudents(
             @RequestParam(required = false) String className,
             @RequestParam(required = false) String academicYear) {
+        log.debug("[StudentController] GET /api/students — className='{}', academicYear='{}'", className, academicYear);
         List<Student> students = studentService.getAllStudents();
-        // Filter by class if provided (used by Results bulk-entry screen)
         if (className != null && !className.isBlank()) {
             students = students.stream()
                     .filter(s -> className.equals(s.getClassForAdmission()))
@@ -61,64 +55,51 @@ public class StudentController {
                     .filter(s -> academicYear.equals(s.getAcademicYear()))
                     .toList();
         }
+        log.debug("[StudentController] Returning {} student(s)", students.size());
         return ResponseEntity.ok(students);
     }
 
-    /**
-     * API endpoint to get a single student by their unique ID.
-     *
-     * @param id The ID of the student to retrieve.
-     * @return The student data if found (200 OK), or a 404 Not Found status.
-     */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER','STUDENT','PARENT')")
     public ResponseEntity<Student> getStudentById(@PathVariable String id) {
+        log.debug("[StudentController] GET /api/students/{}", id);
         return studentService.getStudentById(id)
-                .map(ResponseEntity::ok) // If student is found, wrap it in a 200 OK response
-                .orElse(ResponseEntity.notFound().build()); // If not found, return a 404
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    log.warn("[StudentController] Student not found: id='{}'", id);
+                    return ResponseEntity.notFound().build();
+                });
     }
 
-    /**
-     * API endpoint to search for students by name.
-     *
-     * @param name The name to search for.
-     * @return A list of matching students.
-     */
     @GetMapping("/search")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER')")
     public ResponseEntity<List<Student>> searchStudents(@RequestParam String name) {
+        log.debug("[StudentController] GET /api/students/search?name='{}'", name);
         List<Student> students = studentService.searchStudents(name);
+        log.debug("[StudentController] Search '{}' returned {} result(s)", name, students.size());
         return ResponseEntity.ok(students);
     }
 
-    /**
-     * API endpoint to update an existing student.
-     * This correctly calls the `updateStudent` method, which does NOT re-generate fees.
-     *
-     * @param id The ID of the student from the URL path.
-     * @param student The updated student data from the request body.
-     * @return The updated student data.
-     */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> updateStudent(@PathVariable String id, @RequestBody Student student) {
+        log.info("[StudentController] PUT /api/students/{}", id);
         try {
             Student updatedStudent = studentService.updateStudent(id, student);
+            log.info("[StudentController] Student updated: id='{}'", id);
             return ResponseEntity.ok(updatedStudent);
         } catch (Exception e) {
+            log.warn("[StudentController] Update FAILED for student id='{}': {}", id, e.getMessage());
             return ResponseEntity.notFound().build();
         }
     }
 
-    /**
-     * API endpoint to delete a student or enquiry record by ID.
-     * @param id The ID of the record to delete.
-     * @return 204 No Content on success.
-     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Void> deleteStudent(@PathVariable String id) {
+        log.info("[StudentController] DELETE /api/students/{}", id);
         studentService.deleteStudent(id);
+        log.info("[StudentController] Student deleted: id='{}'", id);
         return ResponseEntity.noContent().build();
     }
 }

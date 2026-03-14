@@ -5,6 +5,7 @@ import com.school.manage.dto.auth.LoginRequest;
 import com.school.manage.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,7 @@ import java.util.Map;
  *  POST /api/auth/refresh        – exchange refresh token for new access token
  *  POST /api/auth/logout         – client-side logout acknowledgement
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
@@ -28,20 +30,24 @@ public class AuthController {
     /** Login for SCHOOL_ADMIN, TEACHER, ACCOUNTANT, TRANSPORT_MANAGER, STUDENT, PARENT */
     @PostMapping("/api/auth/login")
     public ResponseEntity<AuthResponse> loginTenant(@Valid @RequestBody LoginRequest req) {
+        log.info("[AuthController] POST /api/auth/login — email='{}'", req.getEmail());
         return ResponseEntity.ok(authService.loginTenant(req));
     }
 
     /** Login for SUPER_ADMIN (platform-level) */
     @PostMapping("/platform/auth/login")
     public ResponseEntity<AuthResponse> loginPlatform(@Valid @RequestBody LoginRequest req) {
+        log.info("[AuthController] POST /platform/auth/login — email='{}'", req.getEmail());
         return ResponseEntity.ok(authService.loginPlatform(req));
     }
 
     /** Exchange a valid refresh token for a new access + refresh token pair */
     @PostMapping("/api/auth/refresh")
     public ResponseEntity<AuthResponse> refresh(@RequestBody Map<String, String> body) {
+        log.debug("[AuthController] POST /api/auth/refresh");
         String refreshToken = body.get("refreshToken");
         if (refreshToken == null || refreshToken.isBlank()) {
+            log.warn("[AuthController] Refresh request missing refreshToken field.");
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(authService.refresh(refreshToken));
@@ -50,6 +56,7 @@ public class AuthController {
     /** Logout acknowledgement — actual token invalidation is client-side */
     @PostMapping("/api/auth/logout")
     public ResponseEntity<Map<String, String>> logout() {
+        log.info("[AuthController] POST /api/auth/logout");
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 }
