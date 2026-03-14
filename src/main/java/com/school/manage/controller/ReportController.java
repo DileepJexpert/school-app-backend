@@ -7,6 +7,7 @@ import com.school.manage.service.ReportSummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -18,12 +19,8 @@ public class ReportController {
 
     private final ReportSummaryService reportSummaryService;
 
-    /**
-     * Fee Collection Report (Hybrid)
-     * Returns summary cards, class-wise breakdown, payment mode breakdown,
-     * paginated transactions, and filter options in one response.
-     */
     @GetMapping("/fees/report-summary")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<FeeReportResponse> getCollectionReport(
             @RequestParam(required = false) 
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

@@ -7,6 +7,7 @@ import com.school.manage.service.TransportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,29 +21,27 @@ public class TransportController {
 
     private final TransportService transportService;
 
-    // ── Buses ─────────────────────────────────────────────────────────────────
-
-    /** GET /api/transport/buses */
     @GetMapping("/buses")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER','STUDENT','PARENT')")
     public ResponseEntity<List<Bus>> getAllBuses() {
         return ResponseEntity.ok(transportService.getAllBuses());
     }
 
-    /** POST /api/transport/buses */
     @PostMapping("/buses")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Bus> createBus(@RequestBody Bus bus) {
         return new ResponseEntity<>(transportService.createBus(bus), HttpStatus.CREATED);
     }
 
-    /** PUT /api/transport/buses/{id} */
     @PutMapping("/buses/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Bus> updateBus(
             @PathVariable String id, @RequestBody Bus bus) {
         return ResponseEntity.ok(transportService.updateBus(id, bus));
     }
 
-    /** DELETE /api/transport/buses/{id} */
     @DeleteMapping("/buses/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Void> deleteBus(@PathVariable String id) {
         transportService.deleteBus(id);
         return ResponseEntity.noContent().build();
@@ -50,27 +49,27 @@ public class TransportController {
 
     // ── Routes ────────────────────────────────────────────────────────────────
 
-    /** GET /api/transport/routes */
     @GetMapping("/routes")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER','STUDENT','PARENT')")
     public ResponseEntity<List<TransportRoute>> getAllRoutes() {
         return ResponseEntity.ok(transportService.getAllRoutes());
     }
 
-    /** POST /api/transport/routes */
     @PostMapping("/routes")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<TransportRoute> createRoute(@RequestBody TransportRoute route) {
         return new ResponseEntity<>(transportService.createRoute(route), HttpStatus.CREATED);
     }
 
-    /** PUT /api/transport/routes/{id} */
     @PutMapping("/routes/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<TransportRoute> updateRoute(
             @PathVariable String id, @RequestBody TransportRoute route) {
         return ResponseEntity.ok(transportService.updateRoute(id, route));
     }
 
-    /** DELETE /api/transport/routes/{id} */
     @DeleteMapping("/routes/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Void> deleteRoute(@PathVariable String id) {
         transportService.deleteRoute(id);
         return ResponseEntity.noContent().build();
@@ -78,24 +77,21 @@ public class TransportController {
 
     // ── Assignments ───────────────────────────────────────────────────────────
 
-    /** GET /api/transport/assignments — all active assignments */
     @GetMapping("/assignments")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<List<StudentTransportAssignment>> getAllAssignments() {
         return ResponseEntity.ok(transportService.getAllActiveAssignments());
     }
 
-    /** GET /api/transport/assignments/bus/{busId} — roster for one bus */
     @GetMapping("/assignments/bus/{busId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<List<StudentTransportAssignment>> getByBus(
             @PathVariable String busId) {
         return ResponseEntity.ok(transportService.getAssignmentsByBus(busId));
     }
 
-    /**
-     * GET /api/transport/assignments/student/{studentId}
-     * Returns 200 with the assignment, or 204 if student has no active assignment.
-     */
     @GetMapping("/assignments/student/{studentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER','STUDENT','PARENT')")
     public ResponseEntity<StudentTransportAssignment> getByStudent(
             @PathVariable String studentId) {
         return transportService.getAssignmentByStudent(studentId)
@@ -103,16 +99,16 @@ public class TransportController {
                 .orElse(ResponseEntity.noContent().build());
     }
 
-    /** POST /api/transport/assignments — assign (or re-assign) a student */
     @PostMapping("/assignments")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<StudentTransportAssignment> assignStudent(
             @RequestBody StudentTransportAssignment assignment) {
         return new ResponseEntity<>(
                 transportService.assignStudent(assignment), HttpStatus.CREATED);
     }
 
-    /** DELETE /api/transport/assignments/{id} — soft-delete (sets INACTIVE) */
     @DeleteMapping("/assignments/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Void> removeAssignment(@PathVariable String id) {
         transportService.removeAssignment(id);
         return ResponseEntity.noContent().build();
@@ -120,8 +116,8 @@ public class TransportController {
 
     // ── Stats ─────────────────────────────────────────────────────────────────
 
-    /** GET /api/transport/stats */
     @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<Map<String, Object>> getStats() {
         return ResponseEntity.ok(transportService.getStats());
     }

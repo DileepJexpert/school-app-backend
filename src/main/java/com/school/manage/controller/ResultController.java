@@ -9,6 +9,7 @@ import com.school.manage.model.StudentResult;
 import com.school.manage.service.ResultService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,14 +22,8 @@ public class ResultController {
 
     private final ResultService resultService;
 
-    // ── BULK MARKS ENTRY ──────────────────────────────────────────────────
-
-    /**
-     * POST /api/results/bulk
-     * Submit marks for an entire class in one call.
-     * Re-entry is supported — existing records for the same combination are replaced.
-     */
     @PostMapping("/bulk")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<List<StudentResult>> bulkSaveResults(
             @RequestBody BulkResultRequest request) {
         return ResponseEntity.ok(resultService.bulkSaveResults(request));
@@ -99,16 +94,16 @@ public class ResultController {
 
     // ── UPDATE / DELETE ───────────────────────────────────────────────────
 
-    /** PUT /api/results/{id} — Update a single result record. */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<StudentResult> updateResult(
             @PathVariable String id,
             @RequestBody StudentResult result) {
         return ResponseEntity.ok(resultService.updateResult(id, result));
     }
 
-    /** DELETE /api/results/{id} — Delete a single result record. */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Void> deleteResult(@PathVariable String id) {
         resultService.deleteResult(id);
         return ResponseEntity.noContent().build();
@@ -116,11 +111,8 @@ public class ResultController {
 
     // ── PUBLISH ───────────────────────────────────────────────────────────
 
-    /**
-     * PUT /api/results/publish?className=Class 10 - A&examType=ANNUAL&year=2024-25
-     * Publishes all draft results and auto-creates a parent notification.
-     */
     @PutMapping("/publish")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Map<String, Object>> publishResults(
             @RequestParam String className,
             @RequestParam String examType,
@@ -137,16 +129,16 @@ public class ResultController {
         return ResponseEntity.ok(resultService.getExamConfigs(year));
     }
 
-    /** POST /api/results/exam-config */
     @PostMapping("/exam-config")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<ExamConfig> saveExamConfig(@RequestBody ExamConfig config) {
         return ResponseEntity.ok(resultService.saveExamConfig(config));
     }
 
     // ── CO-SCHOLASTIC ─────────────────────────────────────────────────────
 
-    /** POST /api/results/coscholastic */
     @PostMapping("/coscholastic")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<CoscholasticAssessment> saveCoscholastic(
             @RequestBody CoscholasticAssessment assessment) {
         return ResponseEntity.ok(resultService.saveCoscholastic(assessment));
@@ -163,6 +155,7 @@ public class ResultController {
     // ── LEGACY (backward compatible) ──────────────────────────────────────
 
     @PostMapping("/add")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public StudentResult addResult(@RequestBody StudentResult studentResult) {
         return resultService.addResult(studentResult);
     }

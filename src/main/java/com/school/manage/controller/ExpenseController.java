@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -19,13 +20,8 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
 
-    /**
-     * Retrieve all expenses, optionally filtered by date range.
-     *
-     * GET /api/expenses
-     * GET /api/expenses?from=2024-06-01&to=2024-06-30
-     */
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<List<Expense>> getExpenses(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -43,6 +39,7 @@ public class ExpenseController {
      * POST /api/expenses
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<Expense> addExpense(@RequestBody Expense expense) {
         return new ResponseEntity<>(expenseService.addExpense(expense), HttpStatus.CREATED);
     }
@@ -53,6 +50,7 @@ public class ExpenseController {
      * DELETE /api/expenses/{id}
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<Void> deleteExpense(@PathVariable String id) {
         expenseService.deleteExpense(id);
         return ResponseEntity.noContent().build();

@@ -5,27 +5,20 @@ import com.school.manage.service.StudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/students")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // For production, specify allowed origins
+@CrossOrigin(origins = "*")
 public class StudentController {
 
     private final StudentService studentService;
 
-    /**
-     * --- MODIFIED FOR FEE AUTOMATION ---
-     * API endpoint to handle a new student admission.
-     * This now calls the `admitStudent` service method, which saves the student
-     * AND automatically generates their fee profile in a single transaction.
-     *
-     * @param student The incoming student data from the admission form.
-     * @return The newly created student data with a 201 Created status.
-     */
     @PostMapping("/add")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> admitNewStudent(@RequestBody Student student) {
         // This is the crucial change: calling the orchestrator method.
         Student admittedStudent = studentService.admitStudent(student);
@@ -41,6 +34,7 @@ public class StudentController {
      * @return The saved enquiry student with a 201 Created status.
      */
     @PostMapping("/enquiry")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> saveEnquiry(@RequestBody Student student) {
         Student saved = studentService.saveEnquiry(student);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
@@ -51,6 +45,7 @@ public class StudentController {
      * @return A list of all students with a 200 OK status.
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER')")
     public ResponseEntity<List<Student>> getAllStudents(
             @RequestParam(required = false) String className,
             @RequestParam(required = false) String academicYear) {
@@ -76,6 +71,7 @@ public class StudentController {
      * @return The student data if found (200 OK), or a 404 Not Found status.
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER','STUDENT','PARENT')")
     public ResponseEntity<Student> getStudentById(@PathVariable String id) {
         return studentService.getStudentById(id)
                 .map(ResponseEntity::ok) // If student is found, wrap it in a 200 OK response
@@ -89,6 +85,7 @@ public class StudentController {
      * @return A list of matching students.
      */
     @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','ACCOUNTANT','TRANSPORT_MANAGER')")
     public ResponseEntity<List<Student>> searchStudents(@RequestParam String name) {
         List<Student> students = studentService.searchStudents(name);
         return ResponseEntity.ok(students);
@@ -103,6 +100,7 @@ public class StudentController {
      * @return The updated student data.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Student> updateStudent(@PathVariable String id, @RequestBody Student student) {
         try {
             Student updatedStudent = studentService.updateStudent(id, student);
@@ -118,6 +116,7 @@ public class StudentController {
      * @return 204 No Content on success.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SCHOOL_ADMIN')")
     public ResponseEntity<Void> deleteStudent(@PathVariable String id) {
         studentService.deleteStudent(id);
         return ResponseEntity.noContent().build();

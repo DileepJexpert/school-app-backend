@@ -31,15 +31,20 @@ public class TenantInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // If JwtAuthFilter already set the tenant from the JWT (trusted),
+        // do not overwrite with the header value (prevents tenant-hopping attacks).
+        if (TenantContext.getTenant() != null) {
+            return true;
+        }
+
         String tenantId = resolveTenant(request);
 
         if (tenantId == null || tenantId.isBlank()) {
-            // For backwards compatibility with single-tenant deployments,
-            // fall back to "default" tenant instead of rejecting the request.
+            // Fall back to "default" for single-tenant / unauthenticated requests.
             tenantId = "default";
         }
 
-        // Sanitize: only alphanumeric + underscore to prevent DB name injection
+        // Sanitize: only alphanumeric + underscore/dash to prevent DB name injection
         tenantId = tenantId.replaceAll("[^a-zA-Z0-9_\\-]", "").toLowerCase();
 
         TenantContext.setTenant(tenantId);
