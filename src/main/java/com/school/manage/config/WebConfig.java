@@ -3,7 +3,6 @@ package com.school.manage.config;
 import com.school.manage.tenant.TenantInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -13,14 +12,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final TenantInterceptor tenantInterceptor;
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(false);
-    }
+    // CORS is handled by Spring Security (SecurityConfig.corsConfigurationSource).
+    // WebMvcConfigurer CORS is NOT used — Spring Security's filter runs first
+    // and Spring Security CORS takes precedence for all secured requests.
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

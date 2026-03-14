@@ -5,6 +5,7 @@ import com.school.manage.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,12 +18,8 @@ public class NotificationController {
 
     private final NotificationService notificationService;
 
-    /**
-     * Create a new notification (admin action).
-     *
-     * POST /api/notifications
-     */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Notification> createNotification(
             @RequestBody Notification notification) {
         return new ResponseEntity<>(
@@ -80,6 +77,7 @@ public class NotificationController {
      * PUT /api/notifications/{id}/read
      */
     @PutMapping("/{id}/read")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Notification> markAsRead(@PathVariable String id) {
         return ResponseEntity.ok(notificationService.markAsRead(id));
     }
@@ -90,6 +88,7 @@ public class NotificationController {
      * PUT /api/notifications/{id}
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Notification> updateNotification(
             @PathVariable String id,
             @RequestBody Notification notification) {
@@ -102,6 +101,7 @@ public class NotificationController {
      * DELETE /api/notifications/{id}
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Void> deleteNotification(@PathVariable String id) {
         notificationService.deleteNotification(id);
         return ResponseEntity.noContent().build();

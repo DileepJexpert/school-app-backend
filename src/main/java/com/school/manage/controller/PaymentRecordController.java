@@ -5,6 +5,7 @@ import com.school.manage.model.PaymentRecord;
 import com.school.manage.service.PaymentRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -15,11 +16,8 @@ public class PaymentRecordController {
 
     private final PaymentRecordService paymentRecordService;
 
-    /**
-     * API endpoint to create a new payment record.
-     * POST /api/payments
-     */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<PaymentRecord> createPayment(@RequestBody PaymentRecord paymentRecord) {
         try {
             PaymentRecord createdPayment = paymentRecordService.createPayment(paymentRecord);
@@ -30,11 +28,8 @@ public class PaymentRecordController {
         }
     }
 
-    /**
-     * API endpoint to get all payments for a specific student.
-     * GET /api/payments/student/{studentId}
-     */
     @GetMapping("/student/{studentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT','STUDENT','PARENT')")
     public ResponseEntity<List<PaymentRecord>> getPaymentsByStudentId(@PathVariable String studentId) {
         List<PaymentRecord> payments = paymentRecordService.getPaymentsForStudent(studentId);
         return ResponseEntity.ok(payments);

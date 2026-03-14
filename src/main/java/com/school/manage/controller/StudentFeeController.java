@@ -10,13 +10,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api") // A common base path
+@RequestMapping("/api")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class StudentFeeController {
@@ -24,12 +25,14 @@ public class StudentFeeController {
     private final FeeService feeService;
 
     @PostMapping("/fees/collect")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<PaymentRecordResponse> collectFee(@Valid @RequestBody FeePaymentRequest request) {
         PaymentRecordResponse paymentRecordResponse = feeService.collectFee(request);
         return new ResponseEntity<>(paymentRecordResponse, HttpStatus.CREATED);
     }
 
     @GetMapping("/student-fee-profiles/{studentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT','STUDENT','PARENT')")
     public ResponseEntity<StudentFeeProfileResponse> getStudentFeeProfile(@PathVariable String studentId) {
         StudentFeeProfileResponse response = feeService.getStudentFeeProfile(studentId);
         return ResponseEntity.ok(response);
@@ -47,11 +50,13 @@ public class StudentFeeController {
      * Returns all students with outstanding dues (dueFees > 0), sorted highest first.
      */
     @GetMapping("/fees/dues")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<List<StudentFeeProfileResponse>> getOutstandingDues() {
         return ResponseEntity.ok(feeService.getOutstandingDues());
     }
 
     @GetMapping("/fees/search")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<List<StudentFeeProfileResponse>> searchStudents(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String className,
@@ -70,6 +75,7 @@ public class StudentFeeController {
      * @return A FeeReportResponse object with the aggregated data.
      */
     @GetMapping("/fees/reports/collection-summary")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<FeeReportResponse> getCollectionReport(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {

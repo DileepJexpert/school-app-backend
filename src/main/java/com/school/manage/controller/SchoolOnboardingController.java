@@ -5,18 +5,12 @@ import com.school.manage.service.SchoolOnboardingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
-/**
- * Platform-level REST API for managing schools.
- * Base path: /platform/schools
- *
- * These endpoints are NOT tenant-scoped — they operate on platform_db.
- * In production, protect these with an admin secret header or role-based auth.
- */
 @RestController
 @RequestMapping("/platform/schools")
 @RequiredArgsConstructor
@@ -25,12 +19,8 @@ public class SchoolOnboardingController {
 
     private final SchoolOnboardingService onboardingService;
 
-    /**
-     * Register a new school.
-     * POST /platform/schools
-     * Body: { "tenantId": "springfield", "name": "Springfield International", "adminEmail": "...", ... }
-     */
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> registerSchool(@RequestBody School school) {
         try {
             School registered = onboardingService.registerSchool(school);
@@ -40,20 +30,14 @@ public class SchoolOnboardingController {
         }
     }
 
-    /**
-     * List all registered schools.
-     * GET /platform/schools
-     */
     @GetMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<List<School>> getAllSchools() {
         return ResponseEntity.ok(onboardingService.getAllSchools());
     }
 
-    /**
-     * Get a school by tenantId.
-     * GET /platform/schools/{tenantId}
-     */
     @GetMapping("/{tenantId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> getSchool(@PathVariable String tenantId) {
         School school = onboardingService.getByTenantId(tenantId);
         if (school == null) {
@@ -87,6 +71,7 @@ public class SchoolOnboardingController {
      * Body: { "active": true }
      */
     @PutMapping("/{tenantId}/status")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> updateStatus(
             @PathVariable String tenantId,
             @RequestBody Map<String, Boolean> body) {

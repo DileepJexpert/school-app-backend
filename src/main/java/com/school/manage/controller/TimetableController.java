@@ -5,6 +5,7 @@ import com.school.manage.service.TimetableService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,12 +18,8 @@ public class TimetableController {
 
     private final TimetableService timetableService;
 
-    /**
-     * Create or update a timetable for a specific class, year and day.
-     *
-     * POST /api/timetable
-     */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Timetable> saveOrUpdateTimetable(@RequestBody Timetable timetable) {
         return new ResponseEntity<>(
                 timetableService.saveOrUpdateTimetable(timetable), HttpStatus.CREATED);
@@ -71,6 +68,7 @@ public class TimetableController {
      * DELETE /api/timetable/{className}?academicYear=2024-25
      */
     @DeleteMapping("/{className}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Void> deleteTimetableByClass(
             @PathVariable String className,
             @RequestParam String academicYear) {
@@ -84,6 +82,7 @@ public class TimetableController {
      * DELETE /api/timetable/entry/{id}
      */
     @DeleteMapping("/entry/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<Void> deleteTimetableById(@PathVariable String id) {
         timetableService.deleteTimetableById(id);
         return ResponseEntity.noContent().build();

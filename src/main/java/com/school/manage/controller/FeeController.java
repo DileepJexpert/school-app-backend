@@ -4,6 +4,7 @@ package com.school.manage.controller;
 import com.school.manage.model.FeeStructure;
 import com.school.manage.service.FeeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -14,12 +15,14 @@ public class FeeController {
     private final FeeService feeService;
 
     @PostMapping("/structure")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public FeeStructure saveFeeStructure(@RequestBody FeeStructure feeStructure) {
       //  return feeService.(feeStructure);
         return feeStructure;
     }
 
     @GetMapping("/structure/{academicYear}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public List<FeeStructure> getFeeStructureByYear(@PathVariable String academicYear) {
       //  return feeService.getFeeStructureByYear(academicYear);
         return List.of();
