@@ -297,13 +297,16 @@ public class ReportSummaryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 3. Monthly collections — group payment_records by year+month
-        GroupOperation groupByMonth = group(
-                Fields.fields().and("year", new Document("$year", "$paymentDate"))
-                               .and("month", new Document("$month", "$paymentDate"))
-        ).sum("amountPaid").as("amount");
+        // Use raw Document because Fields.fields().and() only accepts String paths,
+        // not computed expressions like $year/$month.
+        AggregationOperation groupByMonth = ctx -> new Document("$group",
+                new Document("_id",
+                        new Document("year", new Document("$year", "$paymentDate"))
+                                .append("month", new Document("$month", "$paymentDate")))
+                        .append("amount", new Document("$sum", "$amountPaid")));
 
-        SortOperation sortByTime = sort(
-                org.springframework.data.domain.Sort.by("_id.year", "_id.month"));
+        AggregationOperation sortByTime = ctx -> new Document("$sort",
+                new Document("_id.year", 1).append("_id.month", 1));
 
         Aggregation monthlyAgg = newAggregation(addFields, groupByMonth, sortByTime);
 
