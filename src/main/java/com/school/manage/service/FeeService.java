@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.springframework.data.domain.Sort;
 
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
@@ -122,12 +121,19 @@ public class FeeService {
     /**
      * Returns all student fee profiles that have an outstanding due amount greater than zero,
      * sorted by due amount descending (highest dues first).
+     *
+     * NOTE: BigDecimalToStringConverter stores all BigDecimal fields (dueFees, totalFees, paidFees)
+     * as strings in MongoDB. A MongoDB-side numeric query such as { 'dueFees': { $gt: 0 } } will
+     * always return an empty result because $gt is type-sensitive and will not match a string field
+     * against a numeric literal. Filtering is therefore done in Java after loading all profiles,
+     * where StringToBigDecimalConverter has already converted the stored strings back to BigDecimal.
      */
     public List<StudentFeeProfileResponse> getOutstandingDues() {
-        // Server-side filter — avoids loading every profile into memory
-        return studentFeeProfileRepository
-                .findAllWithOutstandingDues(Sort.by(Sort.Direction.DESC, "dueFees"))
+        return studentFeeProfileRepository.findAll()
                 .stream()
+                .filter(p -> p.getDueFees() != null
+                        && p.getDueFees().compareTo(BigDecimal.ZERO) > 0)
+                .sorted((a, b) -> b.getDueFees().compareTo(a.getDueFees()))
                 .map(this::mapToStudentFeeProfileResponse)
                 .collect(Collectors.toList());
     }
