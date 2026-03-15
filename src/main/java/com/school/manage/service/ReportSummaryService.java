@@ -3,8 +3,11 @@ package com.school.manage.service;
 import com.mongodb.BasicDBObject;
 import com.school.manage.enums.PaymentMode;
 import com.school.manage.model.PaymentRecord;
+import com.school.manage.model.Student;
 import com.school.manage.model.StudentFeeProfile;
 import com.school.manage.dto.*;
+import com.school.manage.repository.StudentFeeProfileRepository;
+import com.school.manage.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -30,6 +33,12 @@ import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 public class ReportSummaryService {
 
     private final MongoTemplate mongoTemplate;
+    private final StudentFeeProfileRepository studentFeeProfileRepository;
+    private final StudentRepository studentRepository;
+
+    private static final String[] MONTH_LABELS =
+            {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
     public FeeReportResponse generateCollectionReport(
             LocalDate startDate,
@@ -97,14 +106,12 @@ public class ReportSummaryService {
                 .totalTransactions(summaryDoc != null ? summaryDoc.getInteger("totalTransactions", 0) : 0)
                 .build();
 
-        // totalDue from student_fee_profiles
-        Document dueDoc = mongoTemplate.aggregate(
-                newAggregation(group().sum("dueFees").as("totalDue")),
-                "student_fee_profiles",
-                Document.class
-        ).getUniqueMappedResult();
-
-        BigDecimal totalDue = toBigDecimal(dueDoc != null ? dueDoc.get("totalDue") : null);
+        // totalDue — BigDecimalToStringConverter stores dueFees as a String in MongoDB,
+        // so MongoDB-side $sum returns 0. Sum in Java after converter has parsed strings back.
+        BigDecimal totalDue = studentFeeProfileRepository.findAll().stream()
+                .filter(p -> p.getDueFees() != null)
+                .map(StudentFeeProfile::getDueFees)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         summary.setTotalDue(totalDue);
 
         // ------------------ 3. Class-wise Breakdown ------------------
@@ -251,6 +258,96 @@ public class ReportSummaryService {
                 .paymentModeSummary(paymentModeSummary)
                 .transactionsPage(pageResult)
                 .filters(filtersResponse)
+                .build();
+    }
+
+    // ── School-wide summary (for Reports screen) ──────────────────────────────
+
+    public SchoolSummaryResponse getSchoolSummary() {
+
+        // 1. Student enrollment
+        List<Student> allStudents = studentRepository.findAll();
+        int totalStudents = allStudents.size();
+        Map<String, Long> enrollmentByClass = allStudents.stream()
+                .filter(s -> s.getClassForAdmission() != null && !s.getClassForAdmission().isBlank())
+                .collect(Collectors.groupingBy(Student::getClassForAdmission, Collectors.counting()));
+
+        // 2. Fee summary — totalCollected + discount from payment_records
+        AggregationOperation addFields = ctx -> new Document("$addFields",
+                new Document("amountPaid", new Document("$toDecimal", "$amountPaid"))
+                        .append("discount", new Document("$toDecimal", "$discount")));
+
+        GroupOperation groupAll = group()
+                .sum("amountPaid").as("totalCollected")
+                .sum("discount").as("totalDiscountGiven")
+                .count().as("totalTransactions");
+
+        Document summaryDoc = mongoTemplate.aggregate(
+                newAggregation(addFields, groupAll), "payment_records", Document.class
+        ).getUniqueMappedResult();
+
+        BigDecimal totalCollected = toBigDecimal(summaryDoc != null ? summaryDoc.get("totalCollected") : null);
+        BigDecimal totalDiscountGiven = toBigDecimal(summaryDoc != null ? summaryDoc.get("totalDiscountGiven") : null);
+        int totalTransactions = summaryDoc != null ? summaryDoc.getInteger("totalTransactions", 0) : 0;
+
+        // totalDue — Java-side sum to avoid BigDecimal-as-string issue
+        BigDecimal totalDue = studentFeeProfileRepository.findAll().stream()
+                .filter(p -> p.getDueFees() != null)
+                .map(StudentFeeProfile::getDueFees)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 3. Monthly collections — group payment_records by year+month
+        GroupOperation groupByMonth = group(
+                Fields.fields().and("year", new Document("$year", "$paymentDate"))
+                               .and("month", new Document("$month", "$paymentDate"))
+        ).sum("amountPaid").as("amount");
+
+        SortOperation sortByTime = sort(
+                org.springframework.data.domain.Sort.by("_id.year", "_id.month"));
+
+        Aggregation monthlyAgg = newAggregation(addFields, groupByMonth, sortByTime);
+
+        List<MonthlyFeeSummary> monthlyCollections = mongoTemplate
+                .aggregate(monthlyAgg, "payment_records", Document.class)
+                .getMappedResults()
+                .stream()
+                .map(doc -> {
+                    Document id = (Document) doc.get("_id");
+                    int m = id != null ? id.getInteger("month", 1) : 1;
+                    int y = id != null ? id.getInteger("year", LocalDate.now().getYear()) : LocalDate.now().getYear();
+                    return MonthlyFeeSummary.builder()
+                            .month(m)
+                            .year(y)
+                            .label(MONTH_LABELS[m - 1])
+                            .amount(toBigDecimal(doc.get("amount")))
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 4. Payment mode summary
+        GroupOperation groupByMode = group("paymentMode").sum("amountPaid").as("totalAmount");
+        ProjectionOperation modeProject = project("totalAmount")
+                .and("_id").as("paymentMode").andExclude("_id");
+
+        List<PaymentModeSummary> paymentModeSummary = mongoTemplate
+                .aggregate(newAggregation(addFields, groupByMode, modeProject), "payment_records", Document.class)
+                .getMappedResults()
+                .stream()
+                .map(doc -> PaymentModeSummary.builder()
+                        .paymentMode(doc.getString("paymentMode"))
+                        .totalAmount(toBigDecimal(doc.get("totalAmount")))
+                        .build())
+                .collect(Collectors.toList());
+
+        return SchoolSummaryResponse.builder()
+                .totalStudents(totalStudents)
+                .enrollmentByClass(enrollmentByClass)
+                .totalFeesCollected(totalCollected)
+                .totalFeesDue(totalDue)
+                .totalDiscountGiven(totalDiscountGiven)
+                .totalTransactions(totalTransactions)
+                .monthlyCollections(monthlyCollections)
+                .paymentModeSummary(paymentModeSummary)
                 .build();
     }
 
