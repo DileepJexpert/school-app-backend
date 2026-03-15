@@ -30,7 +30,7 @@ public class StudentFeeController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
     public ResponseEntity<PaymentRecordResponse> collectFee(@Valid @RequestBody FeePaymentRequest request) {
         log.info("[StudentFeeController] POST /api/fees/collect — studentId='{}', amount='{}'",
-                request.getStudentId(), request.getAmountPaid());
+                request.getStudentId(), request.getAmount());
         PaymentRecordResponse response = feeService.collectFee(request);
         log.info("[StudentFeeController] Fee collected: receiptNo='{}'", response.getReceiptNumber());
         return new ResponseEntity<>(response, HttpStatus.CREATED);

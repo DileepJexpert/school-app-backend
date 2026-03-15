@@ -66,7 +66,7 @@ public class TransportController {
     @PostMapping("/routes")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TRANSPORT_MANAGER')")
     public ResponseEntity<TransportRoute> createRoute(@RequestBody TransportRoute route) {
-        log.info("[TransportController] POST /api/transport/routes — routeName='{}'", route.getRouteName());
+        log.info("[TransportController] POST /api/transport/routes — zoneName='{}'", route.getZoneName());
         TransportRoute saved = transportService.createRoute(route);
         log.info("[TransportController] Route created: id='{}'", saved.getId());
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
