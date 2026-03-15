@@ -30,7 +30,7 @@ public class AttendanceController {
             @RequestBody AttendanceRequestDto request) {
         log.info("[AttendanceController] POST /api/attendance/mark — class='{}', date='{}', count={}",
                 request.getClassName(), request.getDate(),
-                request.getAttendanceList() != null ? request.getAttendanceList().size() : 0);
+                request.getEntries() != null ? request.getEntries().size() : 0);
         List<Attendance> saved = attendanceService.markBulkAttendance(request);
         log.info("[AttendanceController] Attendance marked: {} records saved", saved.size());
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
