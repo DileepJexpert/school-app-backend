@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,10 +24,12 @@ public class CertificateController {
     @PostMapping("/generate")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN')")
     public ResponseEntity<CertificateRecord> generateCertificate(
-            @RequestBody CertificateRequestDto request) {
-        log.info("Generating {} certificate for student: {}",
-                request.getCertificateType(), request.getStudentId());
-        return ResponseEntity.ok(certificateService.generateCertificate(request));
+            @RequestBody CertificateRequestDto request,
+            Authentication authentication) {
+        String generatedBy = authentication.getName();
+        log.info("Generating {} certificate for student: {} by {}",
+                request.getCertificateType(), request.getStudentId(), generatedBy);
+        return ResponseEntity.ok(certificateService.generateCertificate(request, generatedBy));
     }
 
     @GetMapping("/student/{studentId}")
