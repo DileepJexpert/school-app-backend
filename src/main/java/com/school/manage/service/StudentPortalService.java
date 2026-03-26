@@ -22,9 +22,6 @@ public class StudentPortalService {
     private final ResultService resultService;
     private final FeeService feeService;
 
-    /**
-     * Build student's own dashboard using their linkedEntityId.
-     */
     public ChildOverviewDto getDashboard(String studentEntityId) {
         log.info("[StudentPortalService] Building dashboard for student entity: {}", studentEntityId);
 
@@ -53,9 +50,9 @@ public class StudentPortalService {
         // Fees
         try {
             var feeProfile = feeService.getStudentFeeProfile(student.getId());
-            dto.setTotalFees(feeProfile.getTotalFee());
-            dto.setPaidFees(feeProfile.getPaidAmount());
-            dto.setPendingFees(feeProfile.getTotalFee() - feeProfile.getPaidAmount());
+            dto.setTotalFees(feeProfile.getTotalFees().doubleValue());
+            dto.setPaidFees(feeProfile.getPaidFees().doubleValue());
+            dto.setPendingFees(feeProfile.getDueFees().doubleValue());
         } catch (Exception e) {
             log.debug("No fee profile for student {}", student.getId());
         }

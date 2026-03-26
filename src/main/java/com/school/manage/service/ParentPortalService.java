@@ -27,11 +27,6 @@ public class ParentPortalService {
     private final FeeService feeService;
     private final MongoTemplate mongoTemplate;
 
-    /**
-     * Build the parent dashboard with overview for each linked child.
-     * The parent user's linkedEntityId contains a comma-separated list of student IDs,
-     * or a single student ID.
-     */
     public ParentDashboardDto getDashboard(User parentUser) {
         log.info("[ParentPortalService] Building dashboard for parent: {}", parentUser.getEmail());
 
@@ -54,9 +49,6 @@ public class ParentPortalService {
         return dashboard;
     }
 
-    /**
-     * Validate that the parent actually has access to this student.
-     */
     public void validateParentAccess(User parentUser, String studentId) {
         List<String> childIds = parseLinkedIds(parentUser.getLinkedEntityId());
         if (!childIds.contains(studentId)) {
@@ -88,9 +80,9 @@ public class ParentPortalService {
         // Fee summary
         try {
             var feeProfile = feeService.getStudentFeeProfile(student.getId());
-            dto.setTotalFees(feeProfile.getTotalFee());
-            dto.setPaidFees(feeProfile.getPaidAmount());
-            dto.setPendingFees(feeProfile.getTotalFee() - feeProfile.getPaidAmount());
+            dto.setTotalFees(feeProfile.getTotalFees().doubleValue());
+            dto.setPaidFees(feeProfile.getPaidFees().doubleValue());
+            dto.setPendingFees(feeProfile.getDueFees().doubleValue());
         } catch (Exception e) {
             log.debug("No fee profile for student {}", student.getId());
         }
