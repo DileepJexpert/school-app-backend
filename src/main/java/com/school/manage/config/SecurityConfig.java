@@ -28,6 +28,8 @@ import java.util.List;
  *   - Stateless JWT (no sessions)
  *   - Public: /api/auth/**, /platform/auth/**, /platform/schools/** (for tenant validation)
  *   - Public read: results, timetable, notifications (parents/students can view without login)
+ *   - Public: /api/payment-gateway/webhook (Razorpay async webhook)
+ *   - Public: /ws/** (WebSocket handshake)
  *   - Everything else: authenticated
  *   - Fine-grained role enforcement via @PreAuthorize on controllers
  *
@@ -49,21 +51,27 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // ── Auth endpoints (login, refresh) — always public ───────────
+                // -- Auth endpoints (login, refresh) -- always public
                 .requestMatchers("/api/auth/**", "/platform/auth/**").permitAll()
 
-                // ── Platform: tenant validation used by Flutter login screen ──
+                // -- Platform: tenant validation used by Flutter login screen
                 .requestMatchers("/platform/schools/*/validate").permitAll()
 
-                // ── Public read-only resources ─────────────────────────────────
+                // -- Public read-only resources
                 .requestMatchers(HttpMethod.GET, "/api/results/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/timetable/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/notifications/**").permitAll()
 
-                // ── Health / actuator ──────────────────────────────────────────
+                // -- Payment gateway webhook (unauthenticated Razorpay callbacks)
+                .requestMatchers("/api/payment-gateway/webhook").permitAll()
+
+                // -- WebSocket handshake endpoint
+                .requestMatchers("/ws/**").permitAll()
+
+                // -- Health / actuator
                 .requestMatchers("/actuator/**").permitAll()
 
-                // ── Everything else requires a valid JWT ───────────────────────
+                // -- Everything else requires a valid JWT
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -83,7 +91,7 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS — permits any origin with credentials so Flutter web + mobile both work.
+     * CORS -- permits any origin with credentials so Flutter web + mobile both work.
      * Tighten allowedOriginPatterns in production to your actual domain(s).
      */
     @Bean
