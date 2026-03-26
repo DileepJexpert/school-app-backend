@@ -48,6 +48,10 @@ public class CertificateService {
         return saved;
     }
 
+    public List<CertificateRecord> getAllCertificates() {
+        return certificateRepository.findAll();
+    }
+
     public List<CertificateRecord> getHistory(String studentId) {
         return certificateRepository.findByStudentId(studentId);
     }
