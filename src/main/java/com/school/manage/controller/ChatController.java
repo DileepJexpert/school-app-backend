@@ -30,15 +30,15 @@ public class ChatController {
     @PostMapping("/rooms")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChatRoom> getOrCreateRoom(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> participants = (List<String>) body.get("participants");
+        String userId1 = (String) body.get("userId1");
+        String userId2 = (String) body.get("userId2");
         String studentId = (String) body.get("studentId");
         @SuppressWarnings("unchecked")
         Map<String, String> participantNames = (Map<String, String>) body.get("participantNames");
         @SuppressWarnings("unchecked")
         Map<String, String> participantRoles = (Map<String, String>) body.get("participantRoles");
         return ResponseEntity.ok(
-                chatService.getOrCreateRoom(participants, studentId, participantNames, participantRoles));
+                chatService.getOrCreateRoom(userId1, userId2, studentId, participantNames, participantRoles));
     }
 
     @GetMapping("/rooms/{roomId}/messages")
@@ -54,9 +54,13 @@ public class ChatController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChatMessage> sendMessage(
             @PathVariable String roomId,
-            @RequestBody ChatMessage message) {
-        message.setRoomId(roomId);
-        return ResponseEntity.ok(chatService.sendMessage(message));
+            @RequestBody Map<String, String> body) {
+        String senderId = body.get("senderId");
+        String senderName = body.get("senderName");
+        String senderRole = body.get("senderRole");
+        String message = body.get("message");
+        return ResponseEntity.ok(
+                chatService.sendMessage(roomId, senderId, senderName, senderRole, message));
     }
 
     @PutMapping("/rooms/{roomId}/read")

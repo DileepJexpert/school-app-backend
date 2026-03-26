@@ -29,22 +29,14 @@ public class DisciplineController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
-    public ResponseEntity<List<Incident>> getAllIncidents(
-            @RequestParam(required = false) String className,
-            @RequestParam(required = false) String severity) {
-        if (className != null) {
-            return ResponseEntity.ok(disciplineService.getByClassName(className));
-        }
-        if (severity != null) {
-            return ResponseEntity.ok(disciplineService.getBySeverity(severity));
-        }
+    public ResponseEntity<List<Incident>> getAllIncidents() {
         return ResponseEntity.ok(disciplineService.getAllIncidents());
     }
 
     @GetMapping("/student/{studentId}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','PARENT')")
     public ResponseEntity<List<Incident>> getStudentIncidents(@PathVariable String studentId) {
-        return ResponseEntity.ok(disciplineService.getByStudentId(studentId));
+        return ResponseEntity.ok(disciplineService.getIncidentsByStudent(studentId));
     }
 
     @PutMapping("/{id}/resolve")

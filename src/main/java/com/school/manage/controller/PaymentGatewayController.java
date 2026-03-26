@@ -23,12 +23,17 @@ public class PaymentGatewayController {
     @PreAuthorize("hasAnyRole('PARENT','STUDENT')")
     public ResponseEntity<PaymentOrder> createOrder(@RequestBody Map<String, Object> body) {
         String studentId = (String) body.get("studentId");
+        String studentName = (String) body.getOrDefault("studentName", "");
+        String className = (String) body.getOrDefault("className", "");
         String installmentId = (String) body.get("installmentId");
+        String installmentLabel = (String) body.getOrDefault("installmentLabel", "");
         double amount = Double.parseDouble(body.get("amount").toString());
-        String currency = (String) body.getOrDefault("currency", "INR");
+        String parentEmail = (String) body.getOrDefault("parentEmail", "");
+        String parentPhone = (String) body.getOrDefault("parentPhone", "");
         log.info("Creating payment order for student: {}, amount: {}", studentId, amount);
         return ResponseEntity.ok(
-                paymentGatewayService.createOrder(studentId, installmentId, amount, currency));
+                paymentGatewayService.createOrder(studentId, studentName, className,
+                        installmentId, installmentLabel, amount, parentEmail, parentPhone));
     }
 
     @PostMapping("/verify")
@@ -42,12 +47,11 @@ public class PaymentGatewayController {
                 paymentGatewayService.verifyPayment(razorpayOrderId, razorpayPaymentId, razorpaySignature));
     }
 
+    @SuppressWarnings("unchecked")
     @PostMapping("/webhook")
-    public ResponseEntity<String> handleWebhook(
-            @RequestBody String payload,
-            @RequestHeader("X-Razorpay-Signature") String signature) {
+    public ResponseEntity<String> handleWebhook(@RequestBody Map<String, Object> payload) {
         log.info("Received Razorpay webhook");
-        paymentGatewayService.handleWebhook(payload, signature);
+        paymentGatewayService.handleWebhook(payload);
         return ResponseEntity.ok("OK");
     }
 
