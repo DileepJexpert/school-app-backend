@@ -1,6 +1,7 @@
 package com.school.manage.config;
 
 import com.school.manage.enums.UserRole;
+import com.school.manage.model.User;
 import com.school.manage.tenant.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -64,9 +65,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     log.debug("[JwtAuthFilter] TenantContext set to '{}' from JWT", tenantId);
                 }
 
+                // Build a lightweight User principal from JWT claims so controllers
+                // can cast auth.getPrincipal() to User without a DB round-trip.
+                User principal = new User();
+                principal.setId(userId);
+                principal.setRole(role);
+                principal.setTenantId(tenantId);
+                principal.setFullName(jwtService.extractName(jwt));
+                principal.setLinkedEntityId(jwtService.extractLinkedEntityId(jwt));
+
                 var authority = new SimpleGrantedAuthority("ROLE_" + role.name());
                 var auth = new UsernamePasswordAuthenticationToken(
-                        userId, null, List.of(authority));
+                        principal, null, List.of(authority));
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }

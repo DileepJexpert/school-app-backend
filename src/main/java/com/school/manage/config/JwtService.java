@@ -91,6 +91,10 @@ public class JwtService {
         return extractClaim(token, claims -> claims.get("linkedEntityId", String.class));
     }
 
+    public String extractName(String token) {
+        return extractClaim(token, claims -> claims.get("name", String.class));
+    }
+
     public long getJwtExpiration() {
         return jwtExpiration;
     }
