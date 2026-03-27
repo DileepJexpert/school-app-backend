@@ -3,8 +3,10 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ChildOverviewDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.Homework;
 import com.school.manage.model.User;
 import com.school.manage.service.FeeService;
+import com.school.manage.service.HomeworkService;
 import com.school.manage.service.ResultService;
 import com.school.manage.service.StudentPortalService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class StudentPortalController {
     private final StudentPortalService studentPortalService;
     private final ResultService resultService;
     private final FeeService feeService;
+    private final HomeworkService homeworkService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -70,5 +73,13 @@ public class StudentPortalController {
     public ResponseEntity<?> getMyFees(Authentication auth) {
         User user = (User) auth.getPrincipal();
         return ResponseEntity.ok(feeService.getStudentFeeProfile(user.getLinkedEntityId()));
+    }
+
+    @GetMapping("/homework")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<Homework>> getMyHomework(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/homework for user={}", user.getId());
+        return ResponseEntity.ok(homeworkService.getHomeworkForStudent(user.getLinkedEntityId()));
     }
 }
