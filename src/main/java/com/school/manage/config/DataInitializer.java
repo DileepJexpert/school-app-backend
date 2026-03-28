@@ -63,13 +63,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private void seedSuperAdmin() {
         String email = "superadmin@platform.com";
-        log.debug("[DataInitializer] Checking if SUPER_ADMIN exists in platform_db for email='{}'", email);
 
         boolean exists = platformMongoTemplate.exists(
                 Query.query(Criteria.where("email").is(email)), User.class);
 
         if (exists) {
-            log.info("[DataInitializer] SUPER_ADMIN already exists — skipping seed.");
+            log.info("[DataInitializer] SUPER_ADMIN already exists — skipping.");
             return;
         }
 
@@ -78,7 +77,7 @@ public class DataInitializer implements CommandLineRunner {
         superAdmin.setPassword(passwordEncoder.encode("SuperAdmin@123"));
         superAdmin.setFullName("Platform Super Admin");
         superAdmin.setRole(UserRole.SUPER_ADMIN);
-        superAdmin.setTenantId(null); // Platform-level, no tenant
+        superAdmin.setTenantId(null);
         superAdmin.setActive(true);
 
         platformMongoTemplate.save(superAdmin);
@@ -93,113 +92,138 @@ public class DataInitializer implements CommandLineRunner {
 
     /**
      * Seeds a complete test school with admin, teacher, student, and AI config.
-     * Idempotent — skips if the "demo" school already exists.
+     * Each entity is checked independently — safe to run multiple times.
      */
     private void seedTestSchool() {
         String tenantId = "demo";
+        boolean createdAnything = false;
 
-        // Check if demo school already exists in platform_db
+        log.info("[DataInitializer] Checking test school 'demo'...");
+
+        // 1. Create School in platform_db (if missing)
         boolean schoolExists = platformMongoTemplate.exists(
                 Query.query(Criteria.where("tenantId").is(tenantId)), School.class);
 
-        if (schoolExists) {
-            log.info("[DataInitializer] Test school 'demo' already exists — skipping test data seed.");
-            return;
+        if (!schoolExists) {
+            School school = new School();
+            school.setTenantId(tenantId);
+            school.setName("Demo School");
+            school.setAdminEmail("admin@demo.com");
+            school.setPhone("9876543210");
+            school.setCity("Mumbai");
+            school.setState("Maharashtra");
+            school.setBoard("CBSE");
+            school.setPlan("free");
+            school.setActive(true);
+            school.setStudentCount(500);
+            school.setCreatedAt(LocalDateTime.now());
+            platformMongoTemplate.save(school);
+            log.info("[DataInitializer] Created school: tenantId='demo', name='Demo School'");
+            createdAnything = true;
+        } else {
+            log.info("[DataInitializer] School 'demo' already exists in platform_db.");
         }
-
-        log.info("[DataInitializer] Creating test school 'demo' with sample users...");
-
-        // 1. Create School in platform_db
-        School school = new School();
-        school.setTenantId(tenantId);
-        school.setName("Demo School");
-        school.setAdminEmail("admin@demo.com");
-        school.setPhone("9876543210");
-        school.setCity("Mumbai");
-        school.setState("Maharashtra");
-        school.setBoard("CBSE");
-        school.setPlan("free");
-        school.setActive(true);
-        school.setStudentCount(500);
-        school.setCreatedAt(LocalDateTime.now());
-        platformMongoTemplate.save(school);
-        log.info("[DataInitializer] Created school: tenantId='{}', name='{}'", tenantId, school.getName());
 
         // 2. Switch to demo_db for tenant-specific data
         try {
             TenantContext.setTenant(tenantId);
 
-            // 3. Create SCHOOL_ADMIN
-            User admin = new User();
-            admin.setEmail("admin@demo.com");
-            admin.setPassword(passwordEncoder.encode("Admin@123"));
-            admin.setFullName("Demo School Admin");
-            admin.setRole(UserRole.SCHOOL_ADMIN);
-            admin.setTenantId(tenantId);
-            admin.setActive(true);
-            mongoTemplate.save(admin);
-            log.info("[DataInitializer] Created SCHOOL_ADMIN: admin@demo.com");
+            // 3. Create SCHOOL_ADMIN (if missing)
+            if (!userExists("admin@demo.com")) {
+                User admin = new User();
+                admin.setEmail("admin@demo.com");
+                admin.setPassword(passwordEncoder.encode("Admin@123"));
+                admin.setFullName("Demo School Admin");
+                admin.setRole(UserRole.SCHOOL_ADMIN);
+                admin.setTenantId(tenantId);
+                admin.setActive(true);
+                mongoTemplate.save(admin);
+                log.info("[DataInitializer] Created SCHOOL_ADMIN: admin@demo.com");
+                createdAnything = true;
+            }
 
-            // 4. Create TEACHER
-            User teacher = new User();
-            teacher.setEmail("teacher@demo.com");
-            teacher.setPassword(passwordEncoder.encode("Teacher@123"));
-            teacher.setFullName("Mrs. Priya Sharma");
-            teacher.setRole(UserRole.TEACHER);
-            teacher.setTenantId(tenantId);
-            teacher.setActive(true);
-            mongoTemplate.save(teacher);
-            log.info("[DataInitializer] Created TEACHER: teacher@demo.com (Mrs. Priya Sharma)");
+            // 4. Create TEACHER (if missing)
+            if (!userExists("teacher@demo.com")) {
+                User teacher = new User();
+                teacher.setEmail("teacher@demo.com");
+                teacher.setPassword(passwordEncoder.encode("Teacher@123"));
+                teacher.setFullName("Mrs. Priya Sharma");
+                teacher.setRole(UserRole.TEACHER);
+                teacher.setTenantId(tenantId);
+                teacher.setActive(true);
+                mongoTemplate.save(teacher);
+                log.info("[DataInitializer] Created TEACHER: teacher@demo.com");
+                createdAnything = true;
+            }
 
-            // 5. Create Student record
-            Student student = new Student();
-            student.setFullName("Rahul Kumar");
-            student.setDateOfBirth(LocalDate.of(2012, 5, 15));
-            student.setGender("Male");
-            student.setClassForAdmission("Class 7 - A");
-            student.setAcademicYear("2025-2026");
-            student.setDateOfAdmission(LocalDate.of(2025, 4, 1));
-            student.setAdmissionNumber("DEMO-001");
-            student.setRollNumber("1");
-            student.setStatus("ACTIVE");
-            mongoTemplate.save(student);
-            log.info("[DataInitializer] Created Student record: '{}' in '{}'", student.getFullName(), student.getClassForAdmission());
+            // 5. Create Student record + Student user (if missing)
+            if (!userExists("student@demo.com")) {
+                // Find or create Student record
+                Student student = mongoTemplate.findOne(
+                        Query.query(Criteria.where("admissionNumber").is("DEMO-001")),
+                        Student.class);
 
-            // 6. Create STUDENT user (linked to Student record)
-            User studentUser = new User();
-            studentUser.setEmail("student@demo.com");
-            studentUser.setPassword(passwordEncoder.encode("Student@123"));
-            studentUser.setFullName("Rahul Kumar");
-            studentUser.setRole(UserRole.STUDENT);
-            studentUser.setTenantId(tenantId);
-            studentUser.setLinkedEntityId(student.getId());
-            studentUser.setActive(true);
-            mongoTemplate.save(studentUser);
-            log.info("[DataInitializer] Created STUDENT user: student@demo.com (linkedEntityId={})", student.getId());
+                if (student == null) {
+                    student = new Student();
+                    student.setFullName("Rahul Kumar");
+                    student.setDateOfBirth(LocalDate.of(2012, 5, 15));
+                    student.setGender("Male");
+                    student.setClassForAdmission("Class 7 - A");
+                    student.setAcademicYear("2025-2026");
+                    student.setDateOfAdmission(LocalDate.of(2025, 4, 1));
+                    student.setAdmissionNumber("DEMO-001");
+                    student.setRollNumber("1");
+                    student.setStatus("ACTIVE");
+                    mongoTemplate.save(student);
+                    log.info("[DataInitializer] Created Student: Rahul Kumar (Class 7 - A)");
+                }
 
-            // 7. Create AI Config (enabled with Ollama for immediate testing)
-            AiConfig aiConfig = new AiConfig();
-            aiConfig.setTenantId(tenantId);
-            aiConfig.setEnabled(true);
-            aiConfig.setEnabledModes(List.of("TUTOR", "SOLVE", "PRACTICE"));
-            aiConfig.setPrimaryProvider("OLLAMA");
-            aiConfig.setFallbackProvider(null);
-            aiConfig.setOllamaBaseUrl("http://localhost:11434");
-            aiConfig.setOllamaModel("llama3");
-            aiConfig.setDailyLimitPerStudent(50);
-            aiConfig.setMaxConversationTurns(30);
-            aiConfig.setUpdatedBy(admin.getId());
-            aiConfig.setUpdatedAt(LocalDateTime.now());
-            mongoTemplate.save(aiConfig);
-            log.info("[DataInitializer] Created AI Config: enabled=true, provider=OLLAMA, model=llama3");
+                User studentUser = new User();
+                studentUser.setEmail("student@demo.com");
+                studentUser.setPassword(passwordEncoder.encode("Student@123"));
+                studentUser.setFullName("Rahul Kumar");
+                studentUser.setRole(UserRole.STUDENT);
+                studentUser.setTenantId(tenantId);
+                studentUser.setLinkedEntityId(student.getId());
+                studentUser.setActive(true);
+                mongoTemplate.save(studentUser);
+                log.info("[DataInitializer] Created STUDENT user: student@demo.com (linkedEntityId={})", student.getId());
+                createdAnything = true;
+            }
+
+            // 6. Create AI Config (if missing)
+            boolean aiConfigExists = mongoTemplate.exists(
+                    Query.query(Criteria.where("tenantId").is(tenantId)), AiConfig.class);
+
+            if (!aiConfigExists) {
+                AiConfig aiConfig = new AiConfig();
+                aiConfig.setTenantId(tenantId);
+                aiConfig.setEnabled(true);
+                aiConfig.setEnabledModes(List.of("TUTOR", "SOLVE", "PRACTICE"));
+                aiConfig.setPrimaryProvider("OLLAMA");
+                aiConfig.setFallbackProvider(null);
+                aiConfig.setOllamaBaseUrl("http://localhost:11434");
+                aiConfig.setOllamaModel("llama3");
+                aiConfig.setDailyLimitPerStudent(50);
+                aiConfig.setMaxConversationTurns(30);
+                aiConfig.setUpdatedAt(LocalDateTime.now());
+                mongoTemplate.save(aiConfig);
+                log.info("[DataInitializer] Created AI Config: enabled=true, provider=OLLAMA");
+                createdAnything = true;
+            }
 
         } finally {
             TenantContext.clear();
         }
 
+        if (!createdAnything) {
+            log.info("[DataInitializer] All test data for 'demo' already exists — nothing to create.");
+            return;
+        }
+
         // Log all credentials
         log.warn("=================================================================");
-        log.warn("  TEST SCHOOL CREATED — For development/testing only!");
+        log.warn("  TEST SCHOOL 'demo' — CREDENTIALS FOR TESTING");
         log.warn("  ");
         log.warn("  School Code : demo");
         log.warn("  School Name : Demo School");
@@ -226,5 +250,11 @@ public class DataInitializer implements CommandLineRunner {
         log.warn("  2. Login as student@demo.com → See homework → Tap 'Ask AI'");
         log.warn("  3. For AI to work: ollama pull llama3 && ollama serve");
         log.warn("=================================================================");
+    }
+
+    /** Check if a user with this email exists in the current tenant DB */
+    private boolean userExists(String email) {
+        return mongoTemplate.exists(
+                Query.query(Criteria.where("email").is(email)), User.class);
     }
 }
