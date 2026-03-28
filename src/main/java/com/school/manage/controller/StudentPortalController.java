@@ -5,10 +5,12 @@ import com.school.manage.dto.ChildOverviewDto;
 import com.school.manage.model.Attendance;
 import com.school.manage.model.Homework;
 import com.school.manage.model.User;
+import com.school.manage.model.TutorialVideo;
 import com.school.manage.service.FeeService;
 import com.school.manage.service.HomeworkService;
 import com.school.manage.service.ResultService;
 import com.school.manage.service.StudentPortalService;
+import com.school.manage.service.TutorialVideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -31,6 +33,7 @@ public class StudentPortalController {
     private final ResultService resultService;
     private final FeeService feeService;
     private final HomeworkService homeworkService;
+    private final TutorialVideoService tutorialVideoService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -81,5 +84,13 @@ public class StudentPortalController {
         User user = (User) auth.getPrincipal();
         log.info("[StudentPortalController] GET /api/student-portal/homework for user={}", user.getId());
         return ResponseEntity.ok(homeworkService.getHomeworkForStudent(user.getLinkedEntityId()));
+    }
+
+    @GetMapping("/videos")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<TutorialVideo>> getMyVideos(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/videos for user={}", user.getId());
+        return ResponseEntity.ok(tutorialVideoService.getVideosForStudent(user.getLinkedEntityId()));
     }
 }
