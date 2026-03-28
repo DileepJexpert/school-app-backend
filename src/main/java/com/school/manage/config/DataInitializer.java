@@ -203,7 +203,7 @@ public class DataInitializer implements CommandLineRunner {
                 aiConfig.setPrimaryProvider("OLLAMA");
                 aiConfig.setFallbackProvider(null);
                 aiConfig.setOllamaBaseUrl("http://localhost:11434");
-                aiConfig.setOllamaModel("llama3");
+                aiConfig.setOllamaModel("llama3.2:3b-instruct-q4_0");
                 aiConfig.setDailyLimitPerStudent(50);
                 aiConfig.setMaxConversationTurns(30);
                 aiConfig.setUpdatedAt(LocalDateTime.now());
@@ -248,7 +248,7 @@ public class DataInitializer implements CommandLineRunner {
         log.warn("  HOW TO TEST:");
         log.warn("  1. Login as teacher@demo.com → Homework → Assign to 'Class 7 - A'");
         log.warn("  2. Login as student@demo.com → See homework → Tap 'Ask AI'");
-        log.warn("  3. For AI to work: ollama pull llama3 && ollama serve");
+        log.warn("  3. For AI to work: ollama pull llama3.2:3b-instruct-q4_0 && ollama serve");
         log.warn("=================================================================");
     }
 
