@@ -38,21 +38,44 @@ public class AiHomeworkService {
         if (providerMap == null) {
             providerMap = aiProviders.stream()
                     .collect(Collectors.toMap(AiProvider::getName, Function.identity()));
+            log.info("========== AI PROVIDERS REGISTERED ==========");
+            providerMap.keySet().forEach(name -> log.info("  -> Provider: {}", name));
+            log.info("==============================================");
         }
         return providerMap;
     }
 
     public AiChatResponse chat(AiChatRequest request, User user) {
+        log.info("========== AI CHAT REQUEST START ==========");
+        log.info("  Student     : {} (id={})", user.getFullName(), user.getId());
+        log.info("  Tenant      : {}", user.getTenantId());
+        log.info("  Mode        : {}", request.getMode());
+        log.info("  Message     : {} ({}chars)", truncate(request.getMessage(), 80), request.getMessage().length());
+        log.info("  HomeworkId  : {}", request.getHomeworkId() != null ? request.getHomeworkId() : "none (free-form)");
+        log.info("  ConvId      : {}", request.getConversationId() != null ? request.getConversationId() : "new conversation");
+        log.info("  Language    : {}", request.getLanguage());
+
+        // Load AI config for this school
         String tenantId = user.getTenantId();
         AiConfig config = aiConfigRepository.findByTenantId(tenantId)
-                .orElseGet(() -> createDefaultConfig(tenantId));
+                .orElseGet(() -> {
+                    log.warn("  [CONFIG] No AI config found for tenant '{}' — creating default (DISABLED)", tenantId);
+                    return createDefaultConfig(tenantId);
+                });
+
+        log.info("  [CONFIG] enabled={}, provider={}, fallback={}, model={}, dailyLimit={}",
+                config.isEnabled(), config.getPrimaryProvider(), config.getFallbackProvider(),
+                getModelName(config), config.getDailyLimitPerStudent());
+        log.info("  [CONFIG] enabledModes={}", config.getEnabledModes());
 
         if (!config.isEnabled()) {
+            log.warn("  [BLOCKED] AI is DISABLED for tenant '{}'", tenantId);
             throw new IllegalStateException("AI Homework Helper is not enabled for your school");
         }
 
         String mode = request.getMode() != null ? request.getMode().toUpperCase() : "TUTOR";
         if (!config.getEnabledModes().contains(mode)) {
+            log.warn("  [BLOCKED] Mode '{}' not in enabled modes: {}", mode, config.getEnabledModes());
             throw new IllegalStateException("Mode '" + mode + "' is not enabled. Available: " + config.getEnabledModes());
         }
 
@@ -60,7 +83,10 @@ public class AiHomeworkService {
         LocalDateTime startOfDay = LocalDateTime.now().with(LocalTime.MIN);
         long questionsToday = aiUsageRepository.countByStudentIdAndRequestTimestampAfter(
                 user.getId(), startOfDay);
+        log.info("  [LIMITS] Questions today: {}/{}", questionsToday, config.getDailyLimitPerStudent());
+
         if (questionsToday >= config.getDailyLimitPerStudent()) {
+            log.warn("  [BLOCKED] Daily limit reached! {}/{}", questionsToday, config.getDailyLimitPerStudent());
             throw new IllegalStateException("Daily limit reached (" + config.getDailyLimitPerStudent()
                     + " questions). Try again tomorrow!");
         }
@@ -70,6 +96,8 @@ public class AiHomeworkService {
         if (request.getConversationId() != null) {
             conversation = aiConversationRepository.findById(request.getConversationId())
                     .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
+            log.info("  [CONV] Continuing conversation '{}' — {} existing messages",
+                    conversation.getId(), conversation.getMessages().size());
         } else {
             conversation = new AiConversation();
             conversation.setStudentId(user.getId());
@@ -82,6 +110,8 @@ public class AiHomeworkService {
                 homeworkRepository.findById(request.getHomeworkId()).ifPresent(hw -> {
                     conversation.setSubject(hw.getSubject());
                     conversation.setClassName(hw.getClassName());
+                    log.info("  [CONV] Linked to homework: '{}' ({} / {})",
+                            hw.getTitle(), hw.getSubject(), hw.getClassName());
                 });
             }
 
@@ -89,10 +119,16 @@ public class AiHomeworkService {
             String systemPrompt = buildSystemPrompt(mode, conversation.getSubject(),
                     conversation.getClassName(), request.getLanguage());
             conversation.getMessages().add(new AiMessage("SYSTEM", systemPrompt));
+            log.info("  [CONV] New conversation created — mode={}", mode);
+            log.debug("  [CONV] System prompt: {}", systemPrompt);
         }
 
         // Check turn limit
-        if (conversation.getMessages().size() >= config.getMaxConversationTurns() * 2) {
+        int currentTurns = conversation.getMessages().size();
+        int maxMessages = config.getMaxConversationTurns() * 2;
+        log.info("  [TURNS] Current messages: {}/{}", currentTurns, maxMessages);
+        if (currentTurns >= maxMessages) {
+            log.warn("  [BLOCKED] Conversation turn limit reached!");
             throw new IllegalStateException("Conversation limit reached. Start a new conversation.");
         }
 
@@ -102,19 +138,46 @@ public class AiHomeworkService {
         // Call AI provider (primary, then fallback)
         String providerUsed;
         AiProviderResponse aiResponse;
+        long startTime = System.currentTimeMillis();
+
         try {
             providerUsed = config.getPrimaryProvider();
+            log.info("  [AI CALL] Calling PRIMARY provider: {} (model={})", providerUsed, getModelName(config));
+            log.info("  [AI CALL] Sending {} messages to AI...", conversation.getMessages().size());
             aiResponse = callProvider(providerUsed, config, conversation.getMessages());
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("  [AI CALL] SUCCESS in {}ms", elapsed);
         } catch (Exception e) {
-            log.warn("[AiHomeworkService] Primary provider {} failed: {}", config.getPrimaryProvider(), e.getMessage());
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.error("  [AI CALL] PRIMARY provider {} FAILED after {}ms: {}", config.getPrimaryProvider(), elapsed, e.getMessage());
+
             if (config.getFallbackProvider() != null) {
-                providerUsed = config.getFallbackProvider();
-                aiResponse = callProvider(providerUsed, config, conversation.getMessages());
+                log.info("  [AI CALL] Trying FALLBACK provider: {}", config.getFallbackProvider());
+                startTime = System.currentTimeMillis();
+                try {
+                    providerUsed = config.getFallbackProvider();
+                    aiResponse = callProvider(providerUsed, config, conversation.getMessages());
+                    elapsed = System.currentTimeMillis() - startTime;
+                    log.info("  [AI CALL] FALLBACK SUCCESS in {}ms", elapsed);
+                } catch (Exception e2) {
+                    elapsed = System.currentTimeMillis() - startTime;
+                    log.error("  [AI CALL] FALLBACK provider {} also FAILED after {}ms: {}", config.getFallbackProvider(), elapsed, e2.getMessage());
+                    recordUsage(user, request, config.getFallbackProvider(), 0, 0, false, e2.getMessage());
+                    throw new RuntimeException("AI provider unavailable. Please try again later.");
+                }
             } else {
+                log.error("  [AI CALL] No fallback provider configured — request FAILED");
                 recordUsage(user, request, config.getPrimaryProvider(), 0, 0, false, e.getMessage());
                 throw new RuntimeException("AI provider unavailable. Please try again later.");
             }
         }
+
+        // Log the AI response
+        log.info("  [AI RESPONSE] Provider    : {}", providerUsed);
+        log.info("  [AI RESPONSE] Input tokens : {}", aiResponse.inputTokens());
+        log.info("  [AI RESPONSE] Output tokens: {}", aiResponse.outputTokens());
+        log.info("  [AI RESPONSE] Response length: {} chars", aiResponse.content().length());
+        log.info("  [AI RESPONSE] Preview: {}", truncate(aiResponse.content(), 150));
 
         // Add assistant response to conversation
         conversation.getMessages().add(new AiMessage("ASSISTANT", aiResponse.content()));
@@ -122,10 +185,19 @@ public class AiHomeworkService {
         conversation.setTotalOutputTokens(conversation.getTotalOutputTokens() + aiResponse.outputTokens());
         conversation.setLastMessageAt(LocalDateTime.now());
         aiConversationRepository.save(conversation);
+        log.info("  [CONV] Saved — total messages now: {}", conversation.getMessages().size());
 
         // Record usage
+        double cost = estimateCost(providerUsed, aiResponse.inputTokens(), aiResponse.outputTokens());
         recordUsage(user, request, providerUsed, aiResponse.inputTokens(),
                 aiResponse.outputTokens(), true, null);
+        log.info("  [COST] Estimated: ${} ({})", String.format("%.6f", cost / 100),
+                providerUsed.equals("OLLAMA") ? "FREE - local model" : "paid API");
+
+        log.info("  [USAGE] Student daily usage: {}/{}", questionsToday + 1, config.getDailyLimitPerStudent());
+        log.info("  [USAGE] Conversation total tokens: in={} out={}",
+                conversation.getTotalInputTokens(), conversation.getTotalOutputTokens());
+        log.info("========== AI CHAT REQUEST COMPLETE ==========");
 
         return AiChatResponse.builder()
                 .conversationId(conversation.getId())
@@ -144,19 +216,23 @@ public class AiHomeworkService {
     }
 
     public List<AiConversation> getConversations(String studentId) {
+        log.info("[AiHomeworkService] Getting conversations for student={}", studentId);
         return aiConversationRepository.findByStudentIdOrderByLastMessageAtDesc(studentId);
     }
 
     public AiConversation getConversation(String conversationId) {
+        log.info("[AiHomeworkService] Getting conversation id={}", conversationId);
         return aiConversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Conversation not found"));
     }
 
     public List<AiUsageRecord> getUsage(String studentId) {
+        log.info("[AiHomeworkService] Getting usage for student={}", studentId);
         return aiUsageRepository.findByStudentIdOrderByRequestTimestampDesc(studentId);
     }
 
     public List<AiUsageRecord> getUsageReport(LocalDateTime from, LocalDateTime to) {
+        log.info("[AiHomeworkService] Getting usage report from={} to={}", from, to);
         return aiUsageRepository.findByRequestTimestampBetween(from, to);
     }
 
@@ -164,13 +240,25 @@ public class AiHomeworkService {
                                             List<AiMessage> messages) {
         AiProvider provider = getProviderMap().get(providerName);
         if (provider == null) {
+            log.error("  [AI CALL] Unknown provider '{}' — available: {}", providerName, getProviderMap().keySet());
             throw new IllegalStateException("Unknown AI provider: " + providerName);
         }
 
         ProviderConfig providerConfig = switch (providerName) {
-            case "OLLAMA" -> new ProviderConfig(null, config.getOllamaBaseUrl(), config.getOllamaModel());
-            case "GEMINI" -> new ProviderConfig(config.getGeminiApiKey(), null, config.getGeminiModel());
-            case "CLAUDE" -> new ProviderConfig(config.getClaudeApiKey(), null, config.getClaudeModel());
+            case "OLLAMA" -> {
+                log.info("  [AI CALL] OLLAMA config: url={}, model={}", config.getOllamaBaseUrl(), config.getOllamaModel());
+                yield new ProviderConfig(null, config.getOllamaBaseUrl(), config.getOllamaModel());
+            }
+            case "GEMINI" -> {
+                log.info("  [AI CALL] GEMINI config: model={}, apiKey={}",
+                        config.getGeminiModel(), config.getGeminiApiKey() != null ? "***" + config.getGeminiApiKey().substring(Math.max(0, config.getGeminiApiKey().length() - 4)) : "NOT SET");
+                yield new ProviderConfig(config.getGeminiApiKey(), null, config.getGeminiModel());
+            }
+            case "CLAUDE" -> {
+                log.info("  [AI CALL] CLAUDE config: model={}, apiKey={}",
+                        config.getClaudeModel(), config.getClaudeApiKey() != null ? "***" + config.getClaudeApiKey().substring(Math.max(0, config.getClaudeApiKey().length() - 4)) : "NOT SET");
+                yield new ProviderConfig(config.getClaudeApiKey(), null, config.getClaudeModel());
+            }
             default -> throw new IllegalStateException("Unknown provider: " + providerName);
         };
 
@@ -182,7 +270,7 @@ public class AiHomeworkService {
         String classCtx = className != null ? "Student's class: " + className + ". " : "";
         String langCtx = "en".equals(language) ? "" : "Respond in " + language + ". ";
 
-        return switch (mode) {
+        String prompt = switch (mode) {
             case "TUTOR" -> "You are a Socratic tutor for school students. " + subjectCtx + classCtx + langCtx
                     + "NEVER give the direct answer. Instead, guide the student step by step with questions and hints. "
                     + "If the student is stuck, break the problem into smaller parts. "
@@ -197,6 +285,10 @@ public class AiHomeworkService {
                     + "Vary the numbers/details but keep the same concept.";
             default -> "You are a helpful homework assistant for school students. " + subjectCtx + classCtx + langCtx;
         };
+
+        log.info("  [PROMPT] Mode={}, Subject={}, Class={}, Language={}", mode, subject, className, language);
+        log.info("  [PROMPT] System prompt length: {} chars", prompt.length());
+        return prompt;
     }
 
     private void recordUsage(User user, AiChatRequest request, String provider,
@@ -214,6 +306,10 @@ public class AiHomeworkService {
         record.setSuccess(success);
         record.setErrorMessage(error);
         aiUsageRepository.save(record);
+
+        if (!success) {
+            log.error("  [USAGE] FAILED request recorded — provider={}, error={}", provider, error);
+        }
     }
 
     private double estimateCost(String provider, int inputTokens, int outputTokens) {
@@ -223,6 +319,20 @@ public class AiHomeworkService {
             case "CLAUDE" -> (inputTokens * 0.003 + outputTokens * 0.015); // Claude Sonnet pricing
             default -> 0.0;
         };
+    }
+
+    private String getModelName(AiConfig config) {
+        return switch (config.getPrimaryProvider()) {
+            case "OLLAMA" -> config.getOllamaModel();
+            case "GEMINI" -> config.getGeminiModel();
+            case "CLAUDE" -> config.getClaudeModel();
+            default -> "unknown";
+        };
+    }
+
+    private String truncate(String text, int maxLen) {
+        if (text == null) return "null";
+        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
     private AiConfig createDefaultConfig(String tenantId) {

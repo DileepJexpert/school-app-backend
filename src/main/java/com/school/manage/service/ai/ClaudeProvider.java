@@ -39,22 +39,35 @@ public class ClaudeProvider implements AiProvider {
         String model = config.model() != null ? config.model() : "claude-sonnet-4-20250514";
         String apiKey = config.apiKey();
         if (apiKey == null || apiKey.isBlank()) {
+            log.error("    [CLAUDE] API key is NOT SET — cannot call Claude");
             throw new RuntimeException("Claude API key not configured");
         }
+
+        log.info("    ┌─── CLAUDE REQUEST ──────────────────────");
+        log.info("    │ Model  : {}", model);
+        log.info("    │ API Key: ***{}", apiKey.substring(Math.max(0, apiKey.length() - 4)));
 
         // Separate system prompt from conversation
         String systemPrompt = null;
         List<Map<String, String>> claudeMessages = new ArrayList<>();
 
-        for (AiMessage msg : messages) {
+        for (int i = 0; i < messages.size(); i++) {
+            AiMessage msg = messages.get(i);
             if ("SYSTEM".equalsIgnoreCase(msg.getRole())) {
                 systemPrompt = msg.getContent();
+                log.info("    │ System prompt: {}chars", msg.getContent().length());
                 continue;
             }
+            String role = "USER".equalsIgnoreCase(msg.getRole()) ? "user" : "assistant";
             Map<String, String> m = new HashMap<>();
-            m.put("role", "USER".equalsIgnoreCase(msg.getRole()) ? "user" : "assistant");
+            m.put("role", role);
             m.put("content", msg.getContent());
             claudeMessages.add(m);
+
+            String preview = msg.getContent().length() > 80
+                    ? msg.getContent().substring(0, 80) + "..."
+                    : msg.getContent();
+            log.info("    │   [{}] {} → \"{}\"", i, role, preview);
         }
 
         Map<String, Object> request = new HashMap<>();
@@ -72,11 +85,24 @@ public class ClaudeProvider implements AiProvider {
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-        log.info("[ClaudeProvider] POST model={} messages={}", model, claudeMessages.size());
+        log.info("    │ Calling Claude API (max_tokens=2048)...");
+        long startTime = System.currentTimeMillis();
 
-        Map<String, Object> response = aiRestTemplate.postForObject(API_URL, entity, Map.class);
+        Map<String, Object> response;
+        try {
+            response = aiRestTemplate.postForObject(API_URL, entity, Map.class);
+        } catch (Exception e) {
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.error("    │ CLAUDE ERROR after {}ms: {}", elapsed, e.getMessage());
+            log.error("    └───────────────────────────────────────");
+            throw e;
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
 
         if (response == null) {
+            log.error("    │ CLAUDE returned NULL response after {}ms", elapsed);
+            log.error("    └───────────────────────────────────────");
             throw new RuntimeException("Claude returned null response");
         }
 
@@ -95,7 +121,22 @@ public class ClaudeProvider implements AiProvider {
             outputTokens = getIntOrZero(usage, "output_tokens");
         }
 
-        log.info("[ClaudeProvider] Response: {} chars, tokens in={} out={}", content.length(), inputTokens, outputTokens);
+        double cost = (inputTokens * 0.003 + outputTokens * 0.015);
+
+        log.info("    │");
+        log.info("    │ ✓ CLAUDE RESPONSE");
+        log.info("    │ Time         : {}ms", elapsed);
+        log.info("    │ Input tokens : {}", inputTokens);
+        log.info("    │ Output tokens: {}", outputTokens);
+        log.info("    │ Response len : {} chars", content.length());
+        log.info("    │ Est. cost    : ${}", String.format("%.6f", cost));
+        if (content.length() > 200) {
+            log.info("    │ AI says: \"{}...\"", content.substring(0, 200));
+        } else {
+            log.info("    │ AI says: \"{}\"", content);
+        }
+        log.info("    └───────────────────────────────────────");
+
         return new AiProviderResponse(content, inputTokens, outputTokens);
     }
 
