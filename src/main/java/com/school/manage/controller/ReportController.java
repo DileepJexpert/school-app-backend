@@ -47,7 +47,7 @@ public class ReportController {
      * and payment mode breakdown.
      */
     @GetMapping("/school-summary")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT','TEACHER')")
     public ResponseEntity<SchoolSummaryResponse> getSchoolSummary() {
         return ResponseEntity.ok(reportSummaryService.getSchoolSummary());
     }

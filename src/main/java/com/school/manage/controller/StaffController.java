@@ -66,7 +66,7 @@ public class StaffController {
     }
 
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<StaffDashboardDto> getDashboard() {
         return ResponseEntity.ok(staffService.getDashboard());
     }
