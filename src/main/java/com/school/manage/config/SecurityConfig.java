@@ -65,6 +65,9 @@ public class SecurityConfig {
                 // -- Payment gateway webhook (unauthenticated Razorpay callbacks)
                 .requestMatchers("/api/payment-gateway/webhook").permitAll()
 
+                // -- WhatsApp webhook (unauthenticated Meta Cloud API callbacks)
+                .requestMatchers("/api/whatsapp/webhook").permitAll()
+
                 // -- WebSocket handshake endpoint
                 .requestMatchers("/ws/**").permitAll()
 
