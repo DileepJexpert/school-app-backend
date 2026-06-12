@@ -322,6 +322,13 @@ public class FeeService {
         return StudentFeeProfileResponse.builder().id(profile.getId()).name(profile.getName()).className(profile.getClassName()).rollNumber(profile.getRollNumber()).parentName(profile.getParentName()).totalFees(profile.getTotalFees()).paidFees(profile.getPaidFees()).dueFees(profile.getDueFees()).totalDiscountGiven(profile.getTotalDiscountGiven()).feeInstallments(installmentResponses).lastPayment(lastPaymentResponse).build();
     }
     private FeeInstallmentResponse mapToFeeInstallmentResponse(FeeInstallment installment) {
-        return FeeInstallmentResponse.builder().installmentName(installment.getInstallmentName()).amountDue(installment.getAmountDue()).status(installment.getStatus()).build();
+        return FeeInstallmentResponse.builder()
+                .installmentId(installment.getInstallmentId())
+                .installmentName(installment.getInstallmentName())
+                .amountDue(installment.getAmountDue())
+                .amountPaid(installment.getAmountPaid())
+                .dueDate(installment.getDueDate())
+                .status(installment.getStatus())
+                .build();
     }
 }
