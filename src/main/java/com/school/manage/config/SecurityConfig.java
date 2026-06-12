@@ -65,6 +65,9 @@ public class SecurityConfig {
                 // -- Payment gateway webhook (unauthenticated Razorpay callbacks)
                 .requestMatchers("/api/payment-gateway/webhook").permitAll()
 
+                // -- WhatsApp webhook (unauthenticated Meta Cloud API callbacks)
+                .requestMatchers("/api/whatsapp/webhook").permitAll()
+
                 // -- WebSocket handshake endpoint
                 .requestMatchers("/ws/**").permitAll()
 
@@ -91,7 +94,9 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS -- permits any origin with credentials so Flutter web + mobile both work.
+     * CORS -- permits any origin so Flutter web + mobile both work.
+     * Auth uses Bearer tokens (not cookies), so allowCredentials stays false —
+     * combining wildcard origins with credentials is an OWASP-flagged misconfiguration.
      * Tighten allowedOriginPatterns in production to your actual domain(s).
      */
     @Bean
@@ -101,7 +106,7 @@ public class SecurityConfig {
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Authorization"));
-        cfg.setAllowCredentials(true);
+        cfg.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
