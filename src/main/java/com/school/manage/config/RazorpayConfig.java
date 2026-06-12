@@ -26,4 +26,10 @@ public class RazorpayConfig {
     public String getKeyId() { return keyId; }
     public String getKeySecret() { return keySecret; }
     public String getWebhookSecret() { return webhookSecret; }
+
+    /** True only when real Razorpay credentials have been supplied (not the dev placeholders). */
+    public boolean isConfigured() {
+        return keyId != null && !keyId.isBlank() && !keyId.equals("rzp_test_placeholder")
+                && keySecret != null && !keySecret.isBlank() && !keySecret.equals("placeholder_secret");
+    }
 }
