@@ -20,8 +20,22 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${app.jwt.secret:SchoolAppDefaultSecretKeyThatIsAtLeast32BytesLong!}")
+    private static final String DEFAULT_DEV_SECRET = "SchoolAppDefaultSecretKeyThatIsAtLeast32BytesLong!";
+
+    @Value("${app.jwt.secret:" + DEFAULT_DEV_SECRET + "}")
     private String secretKey;
+
+    @jakarta.annotation.PostConstruct
+    void warnIfDefaultSecret() {
+        if (DEFAULT_DEV_SECRET.equals(secretKey)) {
+            org.slf4j.LoggerFactory.getLogger(JwtService.class).warn(
+                    "=================================================================\n" +
+                    "  SECURITY WARNING: JWT is signed with the built-in DEV secret.\n" +
+                    "  Anyone can forge tokens. Set APP_JWT_SECRET before production:\n" +
+                    "    export APP_JWT_SECRET=$(openssl rand -base64 48)\n" +
+                    "=================================================================");
+        }
+    }
 
     /** Access token validity in seconds (default: 24 h) */
     @Value("${app.jwt.expiration:86400}")

@@ -4,6 +4,7 @@ import com.school.manage.model.WhatsAppConfig;
 import com.school.manage.model.WhatsAppConversation;
 import com.school.manage.service.WhatsAppService;
 import com.school.manage.tenant.TenantContext;
+import com.school.manage.util.SecretMasker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,8 @@ public class WhatsAppConfigController {
             config = new WhatsAppConfig();
             config.setTenantId(tenantId);
         }
+        // Never return the raw business token to the client
+        config.setWhatsappBusinessToken(SecretMasker.mask(config.getWhatsappBusinessToken()));
         return ResponseEntity.ok(config);
     }
 
@@ -45,9 +48,17 @@ public class WhatsAppConfigController {
         log.info("[WhatsAppConfig] PUT config for tenant={} — enabled={}", tenantId, config.isEnabled());
 
         config.setTenantId(tenantId);
+        // Masked/blank token means "unchanged" — keep the stored token
+        WhatsAppConfig existing = whatsAppService.getWhatsAppConfig(tenantId);
+        if (existing != null) {
+            config.setId(existing.getId());
+            config.setWhatsappBusinessToken(SecretMasker.resolve(
+                    config.getWhatsappBusinessToken(), existing.getWhatsappBusinessToken()));
+        }
         WhatsAppConfig saved = whatsAppService.saveConfig(config);
         // Clear parent cache since config changed
         whatsAppService.clearParentCache();
+        saved.setWhatsappBusinessToken(SecretMasker.mask(saved.getWhatsappBusinessToken()));
         return ResponseEntity.ok(saved);
     }
 

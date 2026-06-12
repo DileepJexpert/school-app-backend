@@ -190,8 +190,11 @@ public class WhatsAppService {
         List<School> schools = platformMongoTemplate.find(
                 Query.query(Criteria.where("active").is(true)), School.class);
 
-        for (School school : schools) {
-            try {
+        // Save the caller's tenant so it can be restored after the cross-tenant scan
+        String callerTenant = TenantContext.getTenant();
+
+        try {
+            for (School school : schools) {
                 TenantContext.setTenant(school.getTenantId());
 
                 // Search in students collection for parent phone match
@@ -237,7 +240,13 @@ public class WhatsAppService {
                             student.getFullName(), school.getTenantId(), relation);
                     return mapping;
                 }
-            } finally {
+            }
+        } finally {
+            // Restore the caller's tenant — clearing it here would break the
+            // surrounding request's tenant isolation
+            if (callerTenant != null) {
+                TenantContext.setTenant(callerTenant);
+            } else {
                 TenantContext.clear();
             }
         }

@@ -5,6 +5,7 @@ import com.school.manage.model.AiUsageRecord;
 import com.school.manage.model.User;
 import com.school.manage.repository.AiConfigRepository;
 import com.school.manage.service.AiHomeworkService;
+import com.school.manage.util.SecretMasker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -36,6 +37,9 @@ public class AiConfigController {
                     c.setTenantId(user.getTenantId());
                     return aiConfigRepository.save(c);
                 });
+        // Never return raw API keys to the client
+        config.setGeminiApiKey(SecretMasker.mask(config.getGeminiApiKey()));
+        config.setClaudeApiKey(SecretMasker.mask(config.getClaudeApiKey()));
         return ResponseEntity.ok(config);
     }
 
@@ -55,8 +59,9 @@ public class AiConfigController {
         existing.setEnabledModes(update.getEnabledModes());
         existing.setPrimaryProvider(update.getPrimaryProvider());
         existing.setFallbackProvider(update.getFallbackProvider());
-        existing.setGeminiApiKey(update.getGeminiApiKey());
-        existing.setClaudeApiKey(update.getClaudeApiKey());
+        // Masked/blank values mean "unchanged" — keep the stored key
+        existing.setGeminiApiKey(SecretMasker.resolve(update.getGeminiApiKey(), existing.getGeminiApiKey()));
+        existing.setClaudeApiKey(SecretMasker.resolve(update.getClaudeApiKey(), existing.getClaudeApiKey()));
         existing.setOllamaBaseUrl(update.getOllamaBaseUrl());
         existing.setOllamaModel(update.getOllamaModel());
         existing.setGeminiModel(update.getGeminiModel());
@@ -71,7 +76,10 @@ public class AiConfigController {
 
         log.info("[AiConfigController] Config updated by {} — enabled={}, provider={}",
                 user.getFullName(), update.isEnabled(), update.getPrimaryProvider());
-        return ResponseEntity.ok(aiConfigRepository.save(existing));
+        AiConfig saved = aiConfigRepository.save(existing);
+        saved.setGeminiApiKey(SecretMasker.mask(saved.getGeminiApiKey()));
+        saved.setClaudeApiKey(SecretMasker.mask(saved.getClaudeApiKey()));
+        return ResponseEntity.ok(saved);
     }
 
     @GetMapping("/usage-report")

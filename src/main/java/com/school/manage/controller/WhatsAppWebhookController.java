@@ -1,5 +1,6 @@
 package com.school.manage.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.school.manage.service.WhatsAppService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,8 @@ import java.util.Map;
  * 1. GET  — verification (challenge response) during webhook setup
  * 2. POST — incoming messages from WhatsApp users
  *
- * This endpoint is PUBLIC (no JWT required) — secured by webhook signature verification.
+ * This endpoint is PUBLIC (no JWT required) — secured by X-Hub-Signature-256
+ * verification when whatsapp.app-secret is configured.
  */
 @Slf4j
 @RestController
@@ -26,9 +28,14 @@ import java.util.Map;
 public class WhatsAppWebhookController {
 
     private final WhatsAppService whatsAppService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${whatsapp.verify-token:school-whatsapp-verify-2024}")
     private String verifyToken;
+
+    /** Meta app secret for webhook signature verification. Empty = verification skipped (dev only). */
+    @Value("${whatsapp.app-secret:}")
+    private String appSecret;
 
     /**
      * Webhook verification — Meta sends this during setup.
@@ -40,7 +47,7 @@ public class WhatsAppWebhookController {
             @RequestParam("hub.verify_token") String token,
             @RequestParam("hub.challenge") String challenge) {
 
-        log.info("[WhatsApp] Webhook verification — mode={}, token={}", mode, token);
+        log.info("[WhatsApp] Webhook verification — mode={}", mode);
 
         if ("subscribe".equals(mode) && verifyToken.equals(token)) {
             log.info("[WhatsApp] Webhook verified successfully");
@@ -53,14 +60,29 @@ public class WhatsAppWebhookController {
 
     /**
      * Incoming WhatsApp messages.
-     * Meta sends a JSON payload with the message details.
+     * Body is consumed raw so the X-Hub-Signature-256 HMAC can be verified
+     * against the exact bytes Meta signed.
      */
     @PostMapping("/webhook")
-    public ResponseEntity<String> receiveMessage(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<String> receiveMessage(
+            @RequestBody String rawPayload,
+            @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature) {
+
         log.info("[WhatsApp] Incoming webhook payload received");
-        log.debug("[WhatsApp] Payload: {}", payload);
+
+        // Signature verification (mandatory when app secret is configured)
+        if (appSecret != null && !appSecret.isBlank()) {
+            if (signature == null || !whatsAppService.verifySignature(signature, rawPayload, appSecret)) {
+                log.warn("[WhatsApp] Webhook REJECTED — invalid or missing X-Hub-Signature-256");
+                return ResponseEntity.status(403).body("Invalid signature");
+            }
+        } else {
+            log.warn("[WhatsApp] whatsapp.app-secret not set — skipping signature verification (NOT safe for production)");
+        }
 
         try {
+            Map<String, Object> payload = objectMapper.readValue(rawPayload, Map.class);
+
             // Parse the Meta Cloud API webhook format
             // Structure: { entry: [{ changes: [{ value: { messages: [...] } }] }] }
             List<Map<String, Object>> entries = (List<Map<String, Object>>) payload.get("entry");
@@ -95,7 +117,6 @@ public class WhatsAppWebhookController {
                         if (from != null && body != null && !body.isBlank()) {
                             log.info("[WhatsApp] Processing message from {} — '{}'",
                                     from, body.substring(0, Math.min(50, body.length())));
-                            // Process async to respond to Meta quickly (they want 200 within 20s)
                             whatsAppService.handleIncomingMessage(from, body, messageId);
                         }
                     }
