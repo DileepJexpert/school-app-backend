@@ -21,12 +21,16 @@ public class StudentService {
     // This creates the connection to your fee management module.
     private final FeeProfileService feeProfileService;
 
+    private final ParentUserService parentUserService;
+
     // --- NEW: CONSTRUCTOR INJECTION ---
     // Using constructor injection is a best practice with Spring.
     @Autowired
-    public StudentService(StudentRepository studentRepository, FeeProfileService feeProfileService) {
+    public StudentService(StudentRepository studentRepository, FeeProfileService feeProfileService,
+                          ParentUserService parentUserService) {
         this.studentRepository = studentRepository;
         this.feeProfileService = feeProfileService;
+        this.parentUserService = parentUserService;
     }
 
     // --- NEW: DEDICATED METHOD FOR NEW ADMISSIONS ---
@@ -44,6 +48,13 @@ public class StudentService {
         // --- THE AUTOMATIC CONNECTION ---
         // Now, call the fee service to create the fee profile for this new student.
         feeProfileService.createFeeProfileForNewStudent(admittedStudent);
+
+        // Auto-create parent user accounts from parentDetails
+        try {
+            parentUserService.ensureParentAccounts(admittedStudent);
+        } catch (Exception ex) {
+            log.error("Failed to create parent accounts for student '{}': {}", admittedStudent.getFullName(), ex.getMessage());
+        }
 
         return admittedStudent;
     }
@@ -146,6 +157,13 @@ public class StudentService {
                           "Profile will be auto-generated on next access.",
                           savedStudent.getFullName(), savedStudent.getId(), ex);
             }
+        }
+
+        // Auto-create or update parent user accounts from parentDetails
+        try {
+            parentUserService.ensureParentAccounts(savedStudent);
+        } catch (Exception ex) {
+            log.error("Failed to update parent accounts for student '{}': {}", savedStudent.getFullName(), ex.getMessage());
         }
 
         return savedStudent;

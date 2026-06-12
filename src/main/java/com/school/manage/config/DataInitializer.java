@@ -2,6 +2,7 @@ package com.school.manage.config;
 
 import com.school.manage.enums.UserRole;
 import com.school.manage.model.AiConfig;
+import com.school.manage.model.ParentDetails;
 import com.school.manage.model.School;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
@@ -174,6 +175,18 @@ public class DataInitializer implements CommandLineRunner {
                     student.setAdmissionNumber("DEMO-001");
                     student.setRollNumber("1");
                     student.setStatus("ACTIVE");
+
+                    ParentDetails parentDetails = new ParentDetails();
+                    parentDetails.setFatherName("Mr. Rajesh Kumar");
+                    parentDetails.setFatherMobile("9876543210");
+                    parentDetails.setFatherEmail("parent@demo.com");
+                    parentDetails.setFatherOccupation("Engineer");
+                    parentDetails.setMotherName("Mrs. Sunita Kumar");
+                    parentDetails.setMotherMobile("9876543211");
+                    parentDetails.setMotherEmail("mother@demo.com");
+                    parentDetails.setMotherOccupation("Teacher");
+                    student.setParentDetails(parentDetails);
+
                     mongoTemplate.save(student);
                     log.info("[DataInitializer] Created Student: Rahul Kumar (Class 7 - A)");
                 }
@@ -191,7 +204,29 @@ public class DataInitializer implements CommandLineRunner {
                 createdAnything = true;
             }
 
-            // 6. Create AI Config (if missing)
+            // 6. Create PARENT user (if missing)
+            if (!userExists("parent@demo.com")) {
+                // Find student to link
+                Student demoStudent = mongoTemplate.findOne(
+                        Query.query(Criteria.where("admissionNumber").is("DEMO-001")),
+                        Student.class);
+
+                User parentUser = new User();
+                parentUser.setEmail("parent@demo.com");
+                parentUser.setPhone("9876543210");
+                parentUser.setPassword(passwordEncoder.encode("Parent@123"));
+                parentUser.setFullName("Mr. Rajesh Kumar");
+                parentUser.setRole(UserRole.PARENT);
+                parentUser.setTenantId(tenantId);
+                parentUser.setLinkedEntityId(demoStudent != null ? demoStudent.getId() : null);
+                parentUser.setActive(true);
+                mongoTemplate.save(parentUser);
+                log.info("[DataInitializer] Created PARENT user: parent@demo.com (linkedEntityId={})",
+                        parentUser.getLinkedEntityId());
+                createdAnything = true;
+            }
+
+            // 7. Create AI Config (if missing)
             boolean aiConfigExists = mongoTemplate.exists(
                     Query.query(Criteria.where("tenantId").is(tenantId)), AiConfig.class);
 
@@ -243,12 +278,20 @@ public class DataInitializer implements CommandLineRunner {
         log.warn("    Name    : Rahul Kumar");
         log.warn("    Class   : Class 7 - A");
         log.warn("  ");
+        log.warn("  PARENT");
+        log.warn("    Email   : parent@demo.com");
+        log.warn("    Phone   : 9876543210");
+        log.warn("    Password: Parent@123");
+        log.warn("    Name    : Mr. Rajesh Kumar");
+        log.warn("    Login   : Email or phone number");
+        log.warn("  ");
         log.warn("  AI Helper : ENABLED (Ollama, all 3 modes)");
         log.warn("  ");
         log.warn("  HOW TO TEST:");
         log.warn("  1. Login as teacher@demo.com → Homework → Assign to 'Class 7 - A'");
         log.warn("  2. Login as student@demo.com → See homework → Tap 'Ask AI'");
         log.warn("  3. For AI to work: ollama pull llama3.2:3b-instruct-q4_0 && ollama serve");
+        log.warn("  4. Login as parent@demo.com (or phone 9876543210) → Parent Portal");
         log.warn("=================================================================");
     }
 
