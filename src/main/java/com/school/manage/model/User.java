@@ -29,7 +29,7 @@ public class User {
     @Id
     private String id;
 
-    @Indexed(unique = true)
+    @Indexed
     private String email;
 
     /** BCrypt-hashed password. Never returned in API responses. */

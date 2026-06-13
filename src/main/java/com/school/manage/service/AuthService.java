@@ -43,11 +43,11 @@ public class AuthService {
      * Looks up the user in the tenant DB set by TenantContext.
      */
     public AuthResponse loginTenant(LoginRequest req) {
-        log.info("[AuthService] Tenant login attempt: email='{}', tenant='{}'",
+        log.info("[AuthService] Tenant login attempt: identifier='{}', tenant='{}'",
                 req.getEmail(), TenantContext.getTenant());
         User user = findInTenantDb(req.getEmail());
         AuthResponse resp = authenticate(user, req.getPassword(), mongoTemplate);
-        log.info("[AuthService] Tenant login SUCCESS: email='{}', role='{}', tenant='{}'",
+        log.info("[AuthService] Tenant login SUCCESS: identifier='{}', role='{}', tenant='{}'",
                 req.getEmail(), resp.getRole(), resp.getTenantId());
         return resp;
     }
@@ -57,10 +57,10 @@ public class AuthService {
      * Always looks up in platform_db regardless of tenant context.
      */
     public AuthResponse loginPlatform(LoginRequest req) {
-        log.info("[AuthService] Platform login attempt: email='{}'", req.getEmail());
+        log.info("[AuthService] Platform login attempt: identifier='{}'", req.getEmail());
         User user = findInPlatformDb(req.getEmail());
         AuthResponse resp = authenticate(user, req.getPassword(), platformMongoTemplate);
-        log.info("[AuthService] Platform login SUCCESS: email='{}', role='{}'",
+        log.info("[AuthService] Platform login SUCCESS: identifier='{}', role='{}'",
                 req.getEmail(), resp.getRole());
         return resp;
     }
@@ -124,14 +124,20 @@ public class AuthService {
                 .build();
     }
 
-    private User findInTenantDb(String email) {
+    private User findInTenantDb(String identifier) {
+        User user = mongoTemplate.findOne(
+                Query.query(Criteria.where("email").is(identifier)), User.class);
+        if (user != null) return user;
         return mongoTemplate.findOne(
-                Query.query(Criteria.where("email").is(email)), User.class);
+                Query.query(Criteria.where("phone").is(identifier)), User.class);
     }
 
-    private User findInPlatformDb(String email) {
+    private User findInPlatformDb(String identifier) {
+        User user = platformMongoTemplate.findOne(
+                Query.query(Criteria.where("email").is(identifier)), User.class);
+        if (user != null) return user;
         return platformMongoTemplate.findOne(
-                Query.query(Criteria.where("email").is(email)), User.class);
+                Query.query(Criteria.where("phone").is(identifier)), User.class);
     }
 
     private User findUserById(String userId, String tenantId) {
