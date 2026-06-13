@@ -4,6 +4,7 @@ import com.school.manage.enums.UserRole;
 import com.school.manage.model.AiConfig;
 import com.school.manage.model.ParentDetails;
 import com.school.manage.model.School;
+import com.school.manage.model.SchoolWebsite;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
 import com.school.manage.tenant.TenantContext;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Seeds essential platform users and test data on first startup.
@@ -244,6 +246,129 @@ public class DataInitializer implements CommandLineRunner {
                 aiConfig.setUpdatedAt(LocalDateTime.now());
                 mongoTemplate.save(aiConfig);
                 log.info("[DataInitializer] Created AI Config: enabled=true, provider=OLLAMA");
+                createdAnything = true;
+            }
+
+            // 8. Create School Website config (if missing)
+            boolean websiteExists = mongoTemplate.exists(
+                    Query.query(Criteria.where("tenantId").is(tenantId)), SchoolWebsite.class);
+
+            if (!websiteExists) {
+                SchoolWebsite website = new SchoolWebsite();
+                website.setTenantId(tenantId);
+                website.setSchoolName("Demo School");
+                website.setShortName("DS");
+                website.setTagline("Nurturing Minds, Building Futures");
+                website.setAccreditation("CBSE Affiliated");
+                website.setPhone("9876543210");
+                website.setEmail("admin@demo.com");
+                website.setAddress("Mumbai, Maharashtra, India");
+                website.setOfficeHours("Mon – Fri: 8:00 AM – 4:00 PM\nSat: 9:00 AM – 1:00 PM");
+                website.setPrimaryColor("#1B3A5C");
+                website.setSecondaryColor("#C8922A");
+                website.setMarqueeText("Welcome to Demo School — Admissions Open for 2026-27!");
+                website.setPrincipalName("Dr. Amit Verma");
+                website.setPrincipalTitle("Principal & Director");
+                website.setPrincipalMessage("At Demo School, we believe every child carries within them "
+                        + "the potential to change the world. Our approach combines time-honored educational "
+                        + "values with modern pedagogical methods, ensuring our students are prepared not just "
+                        + "for examinations, but for life itself.");
+                website.setMission("To provide a holistic education that cultivates intellectual curiosity, "
+                        + "ethical character, and global citizenship in every student.");
+                website.setVision("To be a beacon of academic excellence and character formation, shaping "
+                        + "leaders who contribute meaningfully to society.");
+
+                website.setStats(List.of(
+                        Map.of("value", "Since 2020", "label", "Established"),
+                        Map.of("value", "500+", "label", "Students"),
+                        Map.of("value", "30+", "label", "Faculty"),
+                        Map.of("value", "2 Acre", "label", "Campus")
+                ));
+
+                website.setCoreValues(List.of(
+                        Map.of("icon", "book", "title", "Academic Excellence", "description", "Rigorous curriculum designed to challenge and inspire."),
+                        Map.of("icon", "shield", "title", "Integrity", "description", "Building character rooted in honesty and responsibility."),
+                        Map.of("icon", "globe", "title", "Global Perspective", "description", "Preparing students for an interconnected world."),
+                        Map.of("icon", "heart", "title", "Compassion", "description", "Fostering empathy and service to community.")
+                ));
+
+                website.setAchievements(List.of(
+                        Map.of("year", "2025", "title", "National Science Olympiad — Gold Medal"),
+                        Map.of("year", "2024", "title", "100% Pass Rate — Board Examinations"),
+                        Map.of("year", "2024", "title", "Best School Award — District Level")
+                ));
+
+                website.setTestimonials(List.of(
+                        Map.of("name", "Rajesh Kumar", "relation", "Parent of Rahul, Class 7", "text", "Demo School has been instrumental in shaping our son's confidence and academic abilities.")
+                ));
+
+                website.setEvents(List.of(
+                        Map.of("date", "Mar 15, 2026", "title", "Annual Science Exhibition", "description", "Students showcase innovative science projects.", "category", "Academic"),
+                        Map.of("date", "Apr 5, 2026", "title", "Sports Day", "description", "Annual athletics competition.", "category", "Sports"),
+                        Map.of("date", "May 1, 2026", "title", "Admissions Open Day", "description", "Campus tour and admissions guidance.", "category", "Admissions")
+                ));
+
+                website.setNotices(List.of(
+                        Map.of("date", "Feb 18, 2026", "title", "Admissions 2026-27 — Applications Now Open", "isHighPriority", "true")
+                ));
+
+                website.setAcademicLevels(List.of(
+                        Map.of("id", "primary", "title", "Primary School", "grades", "Kindergarten – Grade 5", "focus", "Building strong foundations in literacy, numeracy, and social skills.", "highlights", "Phonics-based English|Hands-on Math|Environmental Studies|Art, Music & PE|Library & Computer Lab"),
+                        Map.of("id", "middle", "title", "Middle School", "grades", "Grade 6 – Grade 8", "focus", "Expanding horizons with structured academics and critical thinking.", "highlights", "Advanced Science with labs|Foreign Languages|Robotics & Coding|Inter-house competitions|Career awareness"),
+                        Map.of("id", "senior", "title", "Senior School", "grades", "Grade 9 – Grade 12", "focus", "Preparing for board examinations and higher education.", "highlights", "Science, Commerce & Humanities|Board exam preparation|College counseling|Research projects|Leadership programs")
+                ));
+
+                website.setCoCurriculars(List.of(
+                        Map.of("icon", "science", "name", "Science Club"),
+                        Map.of("icon", "music", "name", "Music & Band"),
+                        Map.of("icon", "sports", "name", "Sports Academy"),
+                        Map.of("icon", "art", "name", "Visual Arts")
+                ));
+
+                website.setFeeStructure(List.of(
+                        Map.of("grade", "Primary (Grade 1–5)", "admission", "15,000", "tuition", "8,500 / month", "annual", "1,02,000"),
+                        Map.of("grade", "Middle (Grade 6–8)", "admission", "18,000", "tuition", "10,500 / month", "annual", "1,26,000"),
+                        Map.of("grade", "Senior (Grade 9–12)", "admission", "20,000", "tuition", "12,000 / month", "annual", "1,44,000")
+                ));
+
+                website.setAdmissionSteps(List.of(
+                        Map.of("step", "1", "title", "Submit Application", "description", "Complete the online application form."),
+                        Map.of("step", "2", "title", "Entrance Assessment", "description", "Age-appropriate assessment for academic readiness."),
+                        Map.of("step", "3", "title", "Parent Interaction", "description", "Meeting with admissions committee."),
+                        Map.of("step", "4", "title", "Offer & Enrollment", "description", "Complete fee payment to confirm enrollment.")
+                ));
+
+                website.setImportantDates(List.of(
+                        Map.of("event", "Applications Open", "date", "February 1, 2026"),
+                        Map.of("event", "Entrance Assessments", "date", "March 15–20, 2026"),
+                        Map.of("event", "Session Begins", "date", "June 1, 2026")
+                ));
+
+                website.setTransportZones(List.of(
+                        Map.of("zone", "Zone A", "area", "Nearby areas", "distance", "0–5 km", "fee", "2,500 / month"),
+                        Map.of("zone", "Zone B", "area", "Extended areas", "distance", "5–10 km", "fee", "3,500 / month")
+                ));
+
+                website.setTransportFeatures(List.of(
+                        "GPS-tracked buses with real-time parent app",
+                        "Trained drivers with experience",
+                        "Female attendant on every bus",
+                        "First-aid kit and fire extinguisher equipped",
+                        "CCTV surveillance on all vehicles"
+                ));
+
+                website.setTimeline(List.of(
+                        Map.of("year", "2020", "text", "School founded with a vision for excellence")
+                ));
+
+                website.setGalleryImages(List.of(
+                        Map.of("category", "Campus", "label", "Main Building", "color", "0xFF2C5F8A"),
+                        Map.of("category", "Classroom", "label", "Smart Classroom", "color", "0xFF8A2C5F")
+                ));
+
+                website.setUpdatedAt(LocalDateTime.now());
+                mongoTemplate.save(website);
+                log.info("[DataInitializer] Created School Website config for 'demo'");
                 createdAnything = true;
             }
 

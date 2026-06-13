@@ -71,6 +71,9 @@ public class SecurityConfig {
                 // -- WebSocket handshake endpoint
                 .requestMatchers("/ws/**").permitAll()
 
+                // -- Public school website endpoints
+                .requestMatchers("/public/**").permitAll()
+
                 // -- Health / actuator
                 .requestMatchers("/actuator/**").permitAll()
 
