@@ -437,7 +437,7 @@ public class WhatsAppService {
 
     // ── Send WhatsApp Reply ────────────────────────────────────────────────
 
-    void sendWhatsAppReply(String to, WhatsAppConfig config, String message) {
+    public void sendWhatsAppReply(String to, WhatsAppConfig config, String message) {
         if (config == null || config.getWhatsappBusinessToken() == null || config.getWhatsappPhoneNumberId() == null) {
             log.warn("│ Cannot send WhatsApp reply — config/token/phoneNumberId missing. Message: {}", message);
             return;

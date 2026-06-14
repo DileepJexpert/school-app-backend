@@ -5,7 +5,8 @@ import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.exception.ResourceNotFoundException;
 import com.school.manage.model.Attendance;
 import com.school.manage.repository.AttendanceRepository;
-import lombok.RequiredArgsConstructor;
+import com.school.manage.tenant.TenantContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -14,10 +15,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
+    private final ParentNotificationService parentNotificationService;
+
+    public AttendanceService(AttendanceRepository attendanceRepository,
+                             @Lazy ParentNotificationService parentNotificationService) {
+        this.attendanceRepository = attendanceRepository;
+        this.parentNotificationService = parentNotificationService;
+    }
 
     /**
      * Marks attendance for multiple students in a class for a given date.
@@ -44,6 +51,8 @@ public class AttendanceService {
 
             savedRecords.add(attendanceRepository.save(attendance));
         }
+
+        parentNotificationService.sendAbsenceAlerts(savedRecords, TenantContext.getTenant());
 
         return savedRecords;
     }

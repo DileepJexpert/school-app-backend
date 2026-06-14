@@ -2,6 +2,7 @@ package com.school.manage.controller;
 
 import com.school.manage.model.WhatsAppConfig;
 import com.school.manage.model.WhatsAppConversation;
+import com.school.manage.service.ParentNotificationService;
 import com.school.manage.service.WhatsAppService;
 import com.school.manage.tenant.TenantContext;
 import com.school.manage.util.SecretMasker;
@@ -25,6 +26,7 @@ import java.util.List;
 public class WhatsAppConfigController {
 
     private final WhatsAppService whatsAppService;
+    private final ParentNotificationService parentNotificationService;
 
     @GetMapping
     public ResponseEntity<WhatsAppConfig> getConfig() {
@@ -81,6 +83,14 @@ public class WhatsAppConfigController {
 
         whatsAppService.sendWhatsAppReply(request.phone(), config, request.message());
         return ResponseEntity.ok("Test message sent");
+    }
+
+    @PostMapping("/send-fee-reminders")
+    public ResponseEntity<String> triggerFeeReminders() {
+        String tenantId = TenantContext.getTenant();
+        log.info("[WhatsAppConfig] Manual fee reminder trigger for tenant={}", tenantId);
+        parentNotificationService.sendFeeRemindersForTenant(tenantId);
+        return ResponseEntity.ok("Fee reminders sent");
     }
 
     record TestMessageRequest(String phone, String message) {}
