@@ -8,6 +8,8 @@ import com.school.manage.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -26,6 +28,7 @@ public class ParentPortalController {
     private final ParentPortalService parentPortalService;
     private final AttendanceService attendanceService;
     private final ResultService resultService;
+    private final ReportCardPdfService reportCardPdfService;
     private final FeeService feeService;
 
     @GetMapping("/dashboard")
@@ -68,6 +71,21 @@ public class ParentPortalController {
         User user = (User) auth.getPrincipal();
         parentPortalService.validateParentAccess(user, studentId);
         return ResponseEntity.ok(resultService.getStudentReportCard(studentId, academicYear));
+    }
+
+    @GetMapping("/child/{studentId}/results/pdf")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<byte[]> downloadChildReportCard(
+            Authentication auth,
+            @PathVariable String studentId,
+            @RequestParam String academicYear) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        byte[] pdf = reportCardPdfService.generateReportCardPdf(studentId, academicYear);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_card.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     @GetMapping("/child/{studentId}/fees")

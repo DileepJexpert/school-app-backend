@@ -8,12 +8,15 @@ import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
 import com.school.manage.service.FeeService;
 import com.school.manage.service.HomeworkService;
+import com.school.manage.service.ReportCardPdfService;
 import com.school.manage.service.ResultService;
 import com.school.manage.service.StudentPortalService;
 import com.school.manage.service.TutorialVideoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -31,6 +34,7 @@ public class StudentPortalController {
 
     private final StudentPortalService studentPortalService;
     private final ResultService resultService;
+    private final ReportCardPdfService reportCardPdfService;
     private final FeeService feeService;
     private final HomeworkService homeworkService;
     private final TutorialVideoService tutorialVideoService;
@@ -69,6 +73,19 @@ public class StudentPortalController {
             @RequestParam String academicYear) {
         User user = (User) auth.getPrincipal();
         return ResponseEntity.ok(resultService.getStudentReportCard(user.getLinkedEntityId(), academicYear));
+    }
+
+    @GetMapping("/results/pdf")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<byte[]> downloadMyReportCard(
+            Authentication auth,
+            @RequestParam String academicYear) {
+        User user = (User) auth.getPrincipal();
+        byte[] pdf = reportCardPdfService.generateReportCardPdf(user.getLinkedEntityId(), academicYear);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=report_card.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     @GetMapping("/fees")
