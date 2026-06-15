@@ -88,8 +88,12 @@ public class ResultController {
 
     // ── REPORT CARD PDF ────────────────────────────────────────────────────
 
+    // NOTE: PARENT and STUDENT must use their own portal endpoints
+    // (/api/parent/child/{id}/results/pdf and /api/student-portal/results/pdf),
+    // which enforce per-student ownership checks. This staff endpoint takes an
+    // arbitrary studentId, so it is restricted to staff roles to prevent IDOR.
     @GetMapping("/student/{studentId}/report/pdf")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER','PARENT','STUDENT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
     public ResponseEntity<byte[]> downloadReportCardPdf(
             @PathVariable String studentId,
             @RequestParam String year) {

@@ -151,68 +151,82 @@ public class ParentNotificationService {
         int remindersSent = 0;
 
         for (StudentFeeProfile profile : allProfiles) {
-            if (profile.getFeeInstallments() == null) continue;
+            // Isolate per-profile failures so one bad fee document does not abort
+            // the entire tenant's reminder batch.
+            try {
+                if (profile.getFeeInstallments() == null) continue;
 
-            List<FeeInstallment> dueInstallments = profile.getFeeInstallments().stream()
-                    .filter(i -> "PENDING".equals(i.getStatus()) || "PARTIALLY_PAID".equals(i.getStatus()))
-                    .filter(i -> i.getDueDate() != null)
-                    .filter(i -> !i.getDueDate().isAfter(targetDate))
-                    .toList();
+                List<FeeInstallment> dueInstallments = profile.getFeeInstallments().stream()
+                        .filter(i -> "PENDING".equals(i.getStatus()) || "PARTIALLY_PAID".equals(i.getStatus()))
+                        .filter(i -> i.getDueDate() != null)
+                        .filter(i -> !i.getDueDate().isAfter(targetDate))
+                        .toList();
 
-            if (dueInstallments.isEmpty()) continue;
+                if (dueInstallments.isEmpty()) continue;
 
-            Student student = studentRepository.findById(profile.getId()).orElse(null);
-            if (student == null || student.getParentDetails() == null) continue;
-            if (!"ACTIVE".equals(student.getStatus())) continue;
+                Student student = studentRepository.findById(profile.getId()).orElse(null);
+                if (student == null || student.getParentDetails() == null) continue;
+                if (!"ACTIVE".equals(student.getStatus())) continue;
 
-            BigDecimal totalDue = dueInstallments.stream()
-                    .map(i -> i.getAmountDue().subtract(i.getAmountPaid()))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal totalDue = dueInstallments.stream()
+                        .map(this::remainingAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            StringBuilder feeDetails = new StringBuilder();
-            for (FeeInstallment inst : dueInstallments) {
-                BigDecimal remaining = inst.getAmountDue().subtract(inst.getAmountPaid());
-                feeDetails.append("  • ").append(inst.getInstallmentName())
-                        .append(": Rs ").append(remaining);
-                if (inst.getDueDate().isBefore(LocalDate.now())) {
-                    feeDetails.append(" (overdue)");
-                } else {
-                    feeDetails.append(" (due ").append(inst.getDueDate().format(DATE_FMT)).append(")");
+                StringBuilder feeDetails = new StringBuilder();
+                for (FeeInstallment inst : dueInstallments) {
+                    BigDecimal remaining = remainingAmount(inst);
+                    feeDetails.append("  • ").append(inst.getInstallmentName())
+                            .append(": Rs ").append(remaining);
+                    if (inst.getDueDate().isBefore(LocalDate.now())) {
+                        feeDetails.append(" (overdue)");
+                    } else {
+                        feeDetails.append(" (due ").append(inst.getDueDate().format(DATE_FMT)).append(")");
+                    }
+                    feeDetails.append("\n");
                 }
-                feeDetails.append("\n");
+
+                String message = String.format(
+                        "Dear Parent,\n\n" +
+                        "This is a gentle reminder about pending fees for *%s* (%s).\n\n" +
+                        "Pending installments:\n%s\n" +
+                        "Total due: *Rs %s*\n\n" +
+                        "Please pay at the school office or via online payment.\n\n" +
+                        "— %s School Management",
+                        student.getFullName(), student.getClassForAdmission(),
+                        feeDetails, totalDue, tenantId);
+
+                List<String> phones = getParentPhones(student.getParentDetails());
+                for (String phone : phones) {
+                    whatsAppService.sendWhatsAppReply(formatPhone(phone), config, message);
+                }
+
+                Notification notification = new Notification();
+                notification.setTitle("Fee Reminder: " + student.getFullName());
+                notification.setMessage("Rs " + totalDue + " pending for " + student.getFullName());
+                notification.setType("FEE_REMINDER");
+                notification.setTargetAudience("INDIVIDUAL");
+                notification.setTargetStudentId(student.getId());
+                notification.setPriority("MEDIUM");
+                notificationService.createNotification(notification);
+
+                remindersSent++;
+            } catch (Exception e) {
+                log.error("[ParentNotification] Failed fee reminder for profile '{}': {}",
+                        profile.getId(), e.getMessage());
             }
-
-            String message = String.format(
-                    "Dear Parent,\n\n" +
-                    "This is a gentle reminder about pending fees for *%s* (%s).\n\n" +
-                    "Pending installments:\n%s\n" +
-                    "Total due: *Rs %s*\n\n" +
-                    "Please pay at the school office or via online payment.\n\n" +
-                    "— %s School Management",
-                    student.getFullName(), student.getClassForAdmission(),
-                    feeDetails, totalDue, tenantId);
-
-            List<String> phones = getParentPhones(student.getParentDetails());
-            for (String phone : phones) {
-                whatsAppService.sendWhatsAppReply(formatPhone(phone), config, message);
-            }
-
-            Notification notification = new Notification();
-            notification.setTitle("Fee Reminder: " + student.getFullName());
-            notification.setMessage("Rs " + totalDue + " pending for " + student.getFullName());
-            notification.setType("FEE_REMINDER");
-            notification.setTargetAudience("INDIVIDUAL");
-            notification.setTargetStudentId(student.getId());
-            notification.setPriority("MEDIUM");
-            notificationService.createNotification(notification);
-
-            remindersSent++;
         }
 
         if (remindersSent > 0) {
             log.info("[ParentNotification] Sent {} fee reminder(s) for tenant '{}'",
                     remindersSent, tenantId);
         }
+    }
+
+    /** Outstanding amount for an installment, treating null amounts as zero. */
+    private BigDecimal remainingAmount(FeeInstallment inst) {
+        BigDecimal due = inst.getAmountDue() != null ? inst.getAmountDue() : BigDecimal.ZERO;
+        BigDecimal paid = inst.getAmountPaid() != null ? inst.getAmountPaid() : BigDecimal.ZERO;
+        return due.subtract(paid);
     }
 
     private List<String> getParentPhones(ParentDetails pd) {

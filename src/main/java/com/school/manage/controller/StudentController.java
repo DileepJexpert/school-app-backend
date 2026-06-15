@@ -238,7 +238,13 @@ public class StudentController {
         for (int i = 0; i < line.length(); i++) {
             char c = line.charAt(i);
             if (c == '"') {
-                inQuotes = !inQuotes;
+                // A doubled quote ("") inside a quoted field is an escaped quote.
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    field.append('"');
+                    i++; // skip the second quote of the pair
+                } else {
+                    inQuotes = !inQuotes;
+                }
             } else if (c == ',' && !inQuotes) {
                 result.add(field.toString());
                 field = new StringBuilder();
