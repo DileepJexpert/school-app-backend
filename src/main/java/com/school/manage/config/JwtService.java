@@ -62,6 +62,7 @@ public class JwtService {
         extraClaims.put("tenantId", user.getTenantId());
         extraClaims.put("name", user.getFullName());
         extraClaims.put("linkedEntityId", user.getLinkedEntityId());
+        extraClaims.put("mustChangePassword", user.isMustChangePassword());
 
         return Jwts.builder()
                 .claims(extraClaims)
@@ -107,6 +108,11 @@ public class JwtService {
 
     public String extractName(String token) {
         return extractClaim(token, claims -> claims.get("name", String.class));
+    }
+
+    public boolean extractMustChangePassword(String token) {
+        return Boolean.TRUE.equals(
+                extractClaim(token, claims -> claims.get("mustChangePassword", Boolean.class)));
     }
 
     public long getJwtExpiration() {

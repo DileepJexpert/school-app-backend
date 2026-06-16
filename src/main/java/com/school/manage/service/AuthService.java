@@ -121,6 +121,7 @@ public class AuthService {
                 .linkedEntityId(user.getLinkedEntityId())
                 .permissions(effectivePermissions(user))
                 .expiresIn(jwtService.getJwtExpiration())
+                .mustChangePassword(user.isMustChangePassword())
                 .build();
     }
 

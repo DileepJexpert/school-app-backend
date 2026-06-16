@@ -73,6 +73,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 principal.setTenantId(tenantId);
                 principal.setFullName(jwtService.extractName(jwt));
                 principal.setLinkedEntityId(jwtService.extractLinkedEntityId(jwt));
+                principal.setMustChangePassword(jwtService.extractMustChangePassword(jwt));
 
                 var authority = new SimpleGrantedAuthority("ROLE_" + role.name());
                 var auth = new UsernamePasswordAuthenticationToken(

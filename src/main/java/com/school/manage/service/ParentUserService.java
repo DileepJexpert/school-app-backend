@@ -92,6 +92,7 @@ public class ParentUserService {
         // Default password: phone number if available, otherwise "Parent@123"
         String defaultPassword = phone != null ? phone : "Parent@123";
         parent.setPassword(passwordEncoder.encode(defaultPassword));
+        parent.setMustChangePassword(true);
 
         mongoTemplate.save(parent);
         log.info("[ParentUserService] Created PARENT user: email='{}', phone='{}', name='{}', linkedStudent='{}'",

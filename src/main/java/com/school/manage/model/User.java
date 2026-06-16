@@ -58,6 +58,9 @@ public class User {
 
     private boolean active = true;
 
+    /** When true the user must set a new password before using the app. */
+    private boolean mustChangePassword = false;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime lastLoginAt;

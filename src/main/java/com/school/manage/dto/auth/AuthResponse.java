@@ -33,4 +33,7 @@ public class AuthResponse {
 
     /** Token validity in seconds */
     private long expiresIn;
+
+    /** When true the user must set a new password before using the app. */
+    private boolean mustChangePassword;
 }

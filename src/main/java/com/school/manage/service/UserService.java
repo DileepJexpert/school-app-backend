@@ -159,8 +159,48 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        user.setMustChangePassword(false);
         template.save(user);
         log.info("[UserService] Password changed successfully for userId='{}'", userId);
+    }
+
+    // ── Initial password (first-login flow) ────────────────────────────────
+
+    /**
+     * Sets a new password for a user whose {@code mustChangePassword} flag is true.
+     * Does NOT require the current password — intended for the first-login flow
+     * where the user received a default password.
+     */
+    public void setInitialPassword(String userId, String newPassword) {
+        log.info("[UserService] Initial password set request for userId='{}'", userId);
+
+        // Try tenant DB first, then platform DB
+        User user = mongoTemplate.findById(userId, User.class);
+        MongoTemplate template = mongoTemplate;
+
+        if (user == null) {
+            log.debug("[UserService] User not in tenant DB, checking platform_db for userId='{}'", userId);
+            user = platformMongoTemplate.findById(userId, User.class);
+            template = platformMongoTemplate;
+        }
+        if (user == null) {
+            log.warn("[UserService] Set initial password FAILED — user not found: userId='{}'", userId);
+            throw new RuntimeException("User not found: " + userId);
+        }
+
+        if (!user.isMustChangePassword()) {
+            log.warn("[UserService] Set initial password FAILED — not required for userId='{}'", userId);
+            throw new RuntimeException("Password change is not required for this user");
+        }
+
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new RuntimeException("New password must be at least 6 characters");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        template.save(user);
+        log.info("[UserService] Initial password set successfully for userId='{}'", userId);
     }
 
     // ── Mapper ───────────────────────────────────────────────────────────────
