@@ -6,6 +6,7 @@ import com.school.manage.model.PaymentRecord;
 import com.school.manage.model.Student;
 import com.school.manage.model.StudentFeeProfile;
 import com.school.manage.dto.*;
+import com.school.manage.repository.AttendanceRepository;
 import com.school.manage.repository.StudentFeeProfileRepository;
 import com.school.manage.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,7 @@ public class ReportSummaryService {
     private final MongoTemplate mongoTemplate;
     private final StudentFeeProfileRepository studentFeeProfileRepository;
     private final StudentRepository studentRepository;
+    private final AttendanceRepository attendanceRepository;
 
     private static final String[] MONTH_LABELS =
             {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -354,7 +357,110 @@ public class ReportSummaryService {
                 .build();
     }
 
-    // 🔧 Helper to safely convert any Mongo value → BigDecimal
+    // ── Dashboard Analytics ──────────────────────────────────────────────────
+
+    public DashboardAnalyticsResponse getDashboardAnalytics() {
+        LocalDate today = LocalDate.now();
+
+        // 1. Total active students
+        List<Student> activeStudents = studentRepository.findAll().stream()
+                .filter(s -> "ACTIVE".equalsIgnoreCase(s.getStatus()))
+                .collect(Collectors.toList());
+        int totalActive = activeStudents.size();
+
+        // 2. Today's attendance counts
+        Query todayQuery = new Query(Criteria.where("date").is(today));
+        List<com.school.manage.model.Attendance> todayRecords =
+                mongoTemplate.find(todayQuery, com.school.manage.model.Attendance.class, "attendance");
+
+        int todayPresent = 0, todayAbsent = 0, todayLate = 0, todayHalfDay = 0;
+        for (com.school.manage.model.Attendance a : todayRecords) {
+            if (a.getStatus() == null) continue;
+            switch (a.getStatus().toUpperCase()) {
+                case "PRESENT"  -> todayPresent++;
+                case "ABSENT"   -> todayAbsent++;
+                case "LATE"     -> todayLate++;
+                case "HALF_DAY" -> todayHalfDay++;
+            }
+        }
+
+        // 3. Weekly attendance trend (last 7 days)
+        LocalDate weekStart = today.minusDays(6);
+        Query weekQuery = new Query(Criteria.where("date").gte(weekStart).lte(today));
+        List<com.school.manage.model.Attendance> weekRecords =
+                mongoTemplate.find(weekQuery, com.school.manage.model.Attendance.class, "attendance");
+
+        // Group by date
+        Map<LocalDate, List<com.school.manage.model.Attendance>> byDate = weekRecords.stream()
+                .filter(a -> a.getDate() != null)
+                .collect(Collectors.groupingBy(com.school.manage.model.Attendance::getDate));
+
+        List<DashboardAnalyticsResponse.DailyAttendanceTrend> weeklyAttendance = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            LocalDate d = weekStart.plusDays(i);
+            List<com.school.manage.model.Attendance> dayRecords = byDate.getOrDefault(d, Collections.emptyList());
+
+            int present = 0, absent = 0, late = 0;
+            for (com.school.manage.model.Attendance a : dayRecords) {
+                if (a.getStatus() == null) continue;
+                switch (a.getStatus().toUpperCase()) {
+                    case "PRESENT"  -> present++;
+                    case "ABSENT"   -> absent++;
+                    case "LATE"     -> late++;
+                    case "HALF_DAY" -> present++; // count half-day towards present for trend
+                }
+            }
+
+            weeklyAttendance.add(DashboardAnalyticsResponse.DailyAttendanceTrend.builder()
+                    .date(d.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH))
+                    .fullDate(d.toString())
+                    .present(present)
+                    .absent(absent)
+                    .late(late)
+                    .total(dayRecords.size())
+                    .build());
+        }
+
+        // 4. Gender distribution
+        Map<String, Integer> genderDistribution = new LinkedHashMap<>();
+        for (Student s : activeStudents) {
+            String gender = s.getGender();
+            if (gender == null || gender.isBlank()) {
+                gender = "Unknown";
+            }
+            genderDistribution.merge(gender, 1, Integer::sum);
+        }
+
+        // 5. New admissions this month and last month
+        LocalDate firstOfThisMonth = today.withDayOfMonth(1);
+        LocalDate firstOfLastMonth = firstOfThisMonth.minusMonths(1);
+
+        int admissionsThisMonth = 0;
+        int admissionsLastMonth = 0;
+        for (Student s : activeStudents) {
+            LocalDate admDate = s.getDateOfAdmission();
+            if (admDate == null) continue;
+            if (!admDate.isBefore(firstOfThisMonth)) {
+                admissionsThisMonth++;
+            } else if (!admDate.isBefore(firstOfLastMonth) && admDate.isBefore(firstOfThisMonth)) {
+                admissionsLastMonth++;
+            }
+        }
+
+        return DashboardAnalyticsResponse.builder()
+                .todayPresent(todayPresent)
+                .todayAbsent(todayAbsent)
+                .todayLate(todayLate)
+                .todayHalfDay(todayHalfDay)
+                .todayTotal(totalActive)
+                .weeklyAttendance(weeklyAttendance)
+                .genderDistribution(genderDistribution)
+                .newAdmissionsThisMonth(admissionsThisMonth)
+                .newAdmissionsLastMonth(admissionsLastMonth)
+                .build();
+    }
+
+    // Helper to safely convert any Mongo value to BigDecimal
     private BigDecimal toBigDecimal(Object value) {
         if (value == null) return BigDecimal.ZERO;
         if (value instanceof BigDecimal bd) return bd;

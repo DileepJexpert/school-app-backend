@@ -1,6 +1,7 @@
 // File: com/school/manage/controller/ReportController.java
 package com.school.manage.controller;
 
+import com.school.manage.dto.DashboardAnalyticsResponse;
 import com.school.manage.dto.FeeReportResponse;
 import com.school.manage.dto.SchoolSummaryResponse;
 import com.school.manage.service.ReportSummaryService;
@@ -50,5 +51,15 @@ public class ReportController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','ACCOUNTANT','TEACHER')")
     public ResponseEntity<SchoolSummaryResponse> getSchoolSummary() {
         return ResponseEntity.ok(reportSummaryService.getSchoolSummary());
+    }
+
+    /**
+     * Returns dashboard analytics: today's attendance, weekly attendance trend,
+     * gender distribution, and new admissions for the current and previous month.
+     */
+    @GetMapping("/dashboard-analytics")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
+    public ResponseEntity<DashboardAnalyticsResponse> getDashboardAnalytics() {
+        return ResponseEntity.ok(reportSummaryService.getDashboardAnalytics());
     }
 }
