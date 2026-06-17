@@ -3,7 +3,10 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ParentDashboardDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.ExamSchedule;
+import com.school.manage.model.Student;
 import com.school.manage.model.User;
+import com.school.manage.repository.StudentRepository;
 import com.school.manage.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,8 @@ public class ParentPortalController {
     private final ResultService resultService;
     private final ReportCardPdfService reportCardPdfService;
     private final FeeService feeService;
+    private final ExamScheduleService examScheduleService;
+    private final StudentRepository studentRepository;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('PARENT')")
@@ -96,5 +101,20 @@ public class ParentPortalController {
         User user = (User) auth.getPrincipal();
         parentPortalService.validateParentAccess(user, studentId);
         return ResponseEntity.ok(feeService.getStudentFeeProfile(studentId));
+    }
+
+    @GetMapping("/child/{studentId}/exam-schedule")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<ExamSchedule>> getChildExamSchedule(
+            Authentication auth,
+            @PathVariable String studentId,
+            @RequestParam(required = false) String academicYear) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        log.info("[ParentPortalController] GET /api/parent/child/{}/exam-schedule", studentId);
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
+        String year = (academicYear != null && !academicYear.isBlank()) ? academicYear : student.getAcademicYear();
+        return ResponseEntity.ok(examScheduleService.getPublishedSchedules(student.getClassForAdmission(), year));
     }
 }

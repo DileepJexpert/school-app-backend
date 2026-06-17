@@ -4,9 +4,13 @@ import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ChildOverviewDto;
 import com.school.manage.model.Attendance;
 import com.school.manage.model.BookIssue;
+import com.school.manage.model.ExamSchedule;
 import com.school.manage.model.Homework;
+import com.school.manage.model.Student;
 import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
+import com.school.manage.repository.StudentRepository;
+import com.school.manage.service.ExamScheduleService;
 import com.school.manage.service.FeeService;
 import com.school.manage.service.HomeworkService;
 import com.school.manage.service.LibraryService;
@@ -41,6 +45,8 @@ public class StudentPortalController {
     private final HomeworkService homeworkService;
     private final TutorialVideoService tutorialVideoService;
     private final LibraryService libraryService;
+    private final ExamScheduleService examScheduleService;
+    private final StudentRepository studentRepository;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -120,5 +126,18 @@ public class StudentPortalController {
         User user = (User) auth.getPrincipal();
         log.info("[StudentPortalController] GET /api/student-portal/library/my-books for user={}", user.getId());
         return ResponseEntity.ok(libraryService.getStudentIssues(user.getLinkedEntityId()));
+    }
+
+    @GetMapping("/exam-schedule")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<ExamSchedule>> getMyExamSchedule(
+            Authentication auth,
+            @RequestParam(required = false) String academicYear) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/exam-schedule for user={}", user.getId());
+        Student student = studentRepository.findById(user.getLinkedEntityId())
+                .orElseThrow(() -> new RuntimeException("Student not found: " + user.getLinkedEntityId()));
+        String year = (academicYear != null && !academicYear.isBlank()) ? academicYear : student.getAcademicYear();
+        return ResponseEntity.ok(examScheduleService.getPublishedSchedules(student.getClassForAdmission(), year));
     }
 }
