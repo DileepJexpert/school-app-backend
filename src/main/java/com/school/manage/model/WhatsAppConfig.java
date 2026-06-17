@@ -44,6 +44,15 @@ public class WhatsAppConfig {
     /** Language preference: auto (detect from message), en, hi */
     private String defaultLanguage = "auto";
 
+    /** Auto-send WhatsApp alert when student marked ABSENT */
+    private boolean absenceAlertEnabled = false;
+
+    /** Auto-send WhatsApp reminder for overdue fee installments */
+    private boolean feeReminderEnabled = false;
+
+    /** Days before due date to send fee reminder (0 = on due date, negative = after) */
+    private int feeReminderDaysBefore = 3;
+
     private String updatedBy;
     private LocalDateTime updatedAt;
 }

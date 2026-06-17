@@ -29,7 +29,7 @@ public class User {
     @Id
     private String id;
 
-    @Indexed(unique = true)
+    @Indexed
     private String email;
 
     /** BCrypt-hashed password. Never returned in API responses. */
@@ -57,6 +57,9 @@ public class User {
     private String linkedEntityId;
 
     private boolean active = true;
+
+    /** When true the user must set a new password before using the app. */
+    private boolean mustChangePassword = false;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 

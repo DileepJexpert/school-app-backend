@@ -6,9 +6,12 @@ import com.school.manage.dto.StudentReportCardDto;
 import com.school.manage.model.CoscholasticAssessment;
 import com.school.manage.model.ExamConfig;
 import com.school.manage.model.StudentResult;
+import com.school.manage.service.ReportCardPdfService;
 import com.school.manage.service.ResultService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,7 @@ import java.util.Map;
 public class ResultController {
 
     private final ResultService resultService;
+    private final ReportCardPdfService reportCardPdfService;
 
     @PostMapping("/bulk")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
@@ -80,6 +84,26 @@ public class ResultController {
             @PathVariable String studentId,
             @RequestParam String year) {
         return ResponseEntity.ok(resultService.getStudentReportCard(studentId, year));
+    }
+
+    // ── REPORT CARD PDF ────────────────────────────────────────────────────
+
+    // NOTE: PARENT and STUDENT must use their own portal endpoints
+    // (/api/parent/child/{id}/results/pdf and /api/student-portal/results/pdf),
+    // which enforce per-student ownership checks. This staff endpoint takes an
+    // arbitrary studentId, so it is restricted to staff roles to prevent IDOR.
+    @GetMapping("/student/{studentId}/report/pdf")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
+    public ResponseEntity<byte[]> downloadReportCardPdf(
+            @PathVariable String studentId,
+            @RequestParam String year) {
+        log.info("[ResultController] GET /api/results/student/{}/report/pdf?year={}", studentId, year);
+        byte[] pdf = reportCardPdfService.generateReportCardPdf(studentId, year);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=report_card_" + studentId + "_" + year + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     // ── CLASS ANALYTICS ───────────────────────────────────────────────────
