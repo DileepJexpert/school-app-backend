@@ -6,26 +6,23 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 @Document(collection = "staff_attendance")
 public class StaffAttendance {
-
     @Id
     private String id;
-
-    private String staffId;
+    private String userId;          // staff user ID
     private String staffName;
-    private String department;
+    private String department;      // Teaching, Admin, Support, etc.
+    private String designation;
     private LocalDate date;
-
-    // PRESENT, ABSENT, LATE, HALF_DAY, ON_LEAVE
-    private String status;
-
-    private String checkInTime;  // HH:mm
-    private String checkOutTime; // HH:mm
-
+    private String status;          // PRESENT, ABSENT, HALF_DAY, ON_LEAVE, LATE
+    private LocalTime checkInTime;
+    private LocalTime checkOutTime;
     private String remarks;
-    private String markedBy;
-    private LocalDateTime markedAt = LocalDateTime.now();
+    private String markedBy;        // admin who marked
+    private String academicYear;
+    private LocalDateTime createdAt;
 }

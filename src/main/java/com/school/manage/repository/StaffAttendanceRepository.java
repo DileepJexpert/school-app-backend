@@ -5,15 +5,18 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface StaffAttendanceRepository extends MongoRepository<StaffAttendance, String> {
 
-    List<StaffAttendance> findByStaffIdAndDateBetween(String staffId, LocalDate from, LocalDate to);
-
     List<StaffAttendance> findByDate(LocalDate date);
 
-    Optional<StaffAttendance> findByStaffIdAndDate(String staffId, LocalDate date);
+    List<StaffAttendance> findByUserId(String userId);
 
-    List<StaffAttendance> findByDepartmentAndDate(String department, LocalDate date);
+    List<StaffAttendance> findByUserIdAndDateBetween(String userId, LocalDate from, LocalDate to);
+
+    List<StaffAttendance> findByDateAndStatus(LocalDate date, String status);
+
+    List<StaffAttendance> findByDateBetween(LocalDate from, LocalDate to);
+
+    long countByDateAndStatus(LocalDate date, String status);
 }
