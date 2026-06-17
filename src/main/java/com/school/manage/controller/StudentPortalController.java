@@ -4,7 +4,9 @@ import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ChildOverviewDto;
 import com.school.manage.model.Attendance;
 import com.school.manage.model.BookIssue;
+import com.school.manage.model.Complaint;
 import com.school.manage.model.ExamSchedule;
+import com.school.manage.model.HealthRecord;
 import com.school.manage.model.Homework;
 import com.school.manage.model.Quiz;
 import com.school.manage.model.QuizAttempt;
@@ -14,8 +16,10 @@ import com.school.manage.model.StudyMaterial;
 import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
 import com.school.manage.repository.StudentRepository;
+import com.school.manage.service.ComplaintService;
 import com.school.manage.service.ExamScheduleService;
 import com.school.manage.service.FeeService;
+import com.school.manage.service.HealthRecordService;
 import com.school.manage.service.HomeworkService;
 import com.school.manage.service.LibraryService;
 import com.school.manage.service.QuizService;
@@ -29,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -61,6 +66,8 @@ public class StudentPortalController {
     private final StudyMaterialService studyMaterialService;
     private final QuizService quizService;
     private final DailyDiaryService dailyDiaryService;
+    private final HealthRecordService healthRecordService;
+    private final ComplaintService complaintService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -267,6 +274,41 @@ public class StudentPortalController {
                 .orElseThrow(() -> new RuntimeException("Student not found: " + user.getLinkedEntityId()));
         String className = student.getClassForAdmission();
         return ResponseEntity.ok(dailyDiaryService.getByClassAndDate(className, LocalDate.now()));
+    }
+
+    // ─── Health Record ────────────────────────────────────────────────────
+
+    @GetMapping("/health-record")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<HealthRecord> getMyHealthRecord(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/health-record for user={}", user.getId());
+        return ResponseEntity.ok(healthRecordService.getByStudentId(user.getLinkedEntityId())
+                .orElse(null));
+    }
+
+    // ─── Complaints ─────────────────────────────────────────────────────
+
+    @GetMapping("/complaints")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<Complaint>> getMyComplaints(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/complaints for user={}", user.getId());
+        return ResponseEntity.ok(complaintService.getByUser(user.getId()));
+    }
+
+    @PostMapping("/complaints")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<Complaint> fileComplaint(@RequestBody Complaint complaint,
+                                                   Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        complaint.setFiledBy(user.getId());
+        complaint.setFilerName(user.getFullName());
+        complaint.setFilerRole("STUDENT");
+        complaint.setStudentId(user.getLinkedEntityId());
+        log.info("[StudentPortalController] POST /api/student-portal/complaints — user='{}', title='{}'",
+                user.getFullName(), complaint.getTitle());
+        return new ResponseEntity<>(complaintService.create(complaint), HttpStatus.CREATED);
     }
 
     // ─── Helper: strip correct answers from quizzes for student view ────

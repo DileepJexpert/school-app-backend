@@ -3,8 +3,10 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ParentDashboardDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.Complaint;
 import com.school.manage.model.DailyDiary;
 import com.school.manage.model.ExamSchedule;
+import com.school.manage.model.HealthRecord;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
 import com.school.manage.repository.StudentRepository;
@@ -18,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -37,6 +41,8 @@ public class ParentPortalController {
     private final ExamScheduleService examScheduleService;
     private final StudentRepository studentRepository;
     private final DailyDiaryService dailyDiaryService;
+    private final HealthRecordService healthRecordService;
+    private final ComplaintService complaintService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('PARENT')")
@@ -145,5 +151,42 @@ public class ParentPortalController {
                 .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
         return ResponseEntity.ok(dailyDiaryService.getByClassAndDate(
                 student.getClassForAdmission(), LocalDate.now()));
+    }
+
+    // ─── Health Record ────────────────────────────────────────────────────
+
+    @GetMapping("/child/{studentId}/health-record")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<HealthRecord> getChildHealthRecord(
+            Authentication auth,
+            @PathVariable String studentId) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        log.info("[ParentPortalController] GET /api/parent/child/{}/health-record", studentId);
+        return ResponseEntity.ok(healthRecordService.getByStudentId(studentId)
+                .orElse(null));
+    }
+
+    // ─── Complaints ─────────────────────────────────────────────────────
+
+    @GetMapping("/complaints")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<Complaint>> getMyComplaints(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[ParentPortalController] GET /api/parent/complaints for user={}", user.getId());
+        return ResponseEntity.ok(complaintService.getByUser(user.getId()));
+    }
+
+    @PostMapping("/complaints")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<Complaint> fileComplaint(@RequestBody Complaint complaint,
+                                                   Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        complaint.setFiledBy(user.getId());
+        complaint.setFilerName(user.getFullName());
+        complaint.setFilerRole("PARENT");
+        log.info("[ParentPortalController] POST /api/parent/complaints — user='{}', title='{}'",
+                user.getFullName(), complaint.getTitle());
+        return new ResponseEntity<>(complaintService.create(complaint), HttpStatus.CREATED);
     }
 }
