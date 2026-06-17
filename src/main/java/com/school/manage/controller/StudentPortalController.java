@@ -9,6 +9,7 @@ import com.school.manage.model.Homework;
 import com.school.manage.model.Quiz;
 import com.school.manage.model.QuizAttempt;
 import com.school.manage.model.Student;
+import com.school.manage.model.DailyDiary;
 import com.school.manage.model.StudyMaterial;
 import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
@@ -21,6 +22,7 @@ import com.school.manage.service.QuizService;
 import com.school.manage.service.ReportCardPdfService;
 import com.school.manage.service.ResultService;
 import com.school.manage.service.StudentPortalService;
+import com.school.manage.service.DailyDiaryService;
 import com.school.manage.service.StudyMaterialService;
 import com.school.manage.service.TutorialVideoService;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +60,7 @@ public class StudentPortalController {
     private final StudentRepository studentRepository;
     private final StudyMaterialService studyMaterialService;
     private final QuizService quizService;
+    private final DailyDiaryService dailyDiaryService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -235,6 +238,35 @@ public class StudentPortalController {
         result.put("attempted", existingAttempt.isPresent());
         existingAttempt.ifPresent(a -> result.put("attempt", a));
         return ResponseEntity.ok(result);
+    }
+
+    // ─── Daily Diary ─────────────────────────────────────────────────────
+
+    @GetMapping("/daily-diary")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<DailyDiary>> getMyDailyDiary(
+            Authentication auth,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/daily-diary for user={}", user.getId());
+        Student student = studentRepository.findById(user.getLinkedEntityId())
+                .orElseThrow(() -> new RuntimeException("Student not found: " + user.getLinkedEntityId()));
+        String className = student.getClassForAdmission();
+        if (date != null) {
+            return ResponseEntity.ok(dailyDiaryService.getByClassAndDate(className, date));
+        }
+        return ResponseEntity.ok(dailyDiaryService.getByClass(className));
+    }
+
+    @GetMapping("/daily-diary/today")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<DailyDiary>> getMyDailyDiaryToday(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/daily-diary/today for user={}", user.getId());
+        Student student = studentRepository.findById(user.getLinkedEntityId())
+                .orElseThrow(() -> new RuntimeException("Student not found: " + user.getLinkedEntityId()));
+        String className = student.getClassForAdmission();
+        return ResponseEntity.ok(dailyDiaryService.getByClassAndDate(className, LocalDate.now()));
     }
 
     // ─── Helper: strip correct answers from quizzes for student view ────

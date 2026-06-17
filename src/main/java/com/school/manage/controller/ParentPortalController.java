@@ -3,6 +3,7 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ParentDashboardDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.DailyDiary;
 import com.school.manage.model.ExamSchedule;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
@@ -35,6 +36,7 @@ public class ParentPortalController {
     private final FeeService feeService;
     private final ExamScheduleService examScheduleService;
     private final StudentRepository studentRepository;
+    private final DailyDiaryService dailyDiaryService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('PARENT')")
@@ -116,5 +118,32 @@ public class ParentPortalController {
                 .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
         String year = (academicYear != null && !academicYear.isBlank()) ? academicYear : student.getAcademicYear();
         return ResponseEntity.ok(examScheduleService.getPublishedSchedules(student.getClassForAdmission(), year));
+    }
+
+    @GetMapping("/child/{studentId}/daily-diary")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<DailyDiary>> getChildDailyDiary(
+            Authentication auth,
+            @PathVariable String studentId) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        log.info("[ParentPortalController] GET /api/parent/child/{}/daily-diary", studentId);
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
+        return ResponseEntity.ok(dailyDiaryService.getByClass(student.getClassForAdmission()));
+    }
+
+    @GetMapping("/child/{studentId}/daily-diary/today")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<DailyDiary>> getChildDailyDiaryToday(
+            Authentication auth,
+            @PathVariable String studentId) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        log.info("[ParentPortalController] GET /api/parent/child/{}/daily-diary/today", studentId);
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found: " + studentId));
+        return ResponseEntity.ok(dailyDiaryService.getByClassAndDate(
+                student.getClassForAdmission(), LocalDate.now()));
     }
 }
