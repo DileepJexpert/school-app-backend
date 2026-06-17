@@ -8,6 +8,7 @@ import com.school.manage.model.Complaint;
 import com.school.manage.model.DailyDiary;
 import com.school.manage.model.ExamSchedule;
 import com.school.manage.model.HealthRecord;
+import com.school.manage.model.Meeting;
 import com.school.manage.model.Notice;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
@@ -28,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -48,6 +50,7 @@ public class ParentPortalController {
     private final ComplaintService complaintService;
     private final NoticeService noticeService;
     private final AwardService awardService;
+    private final MeetingService meetingService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('PARENT')")
@@ -224,5 +227,41 @@ public class ParentPortalController {
         parentPortalService.validateParentAccess(user, studentId);
         log.info("[ParentPortalController] GET /api/parent/child/{}/awards", studentId);
         return ResponseEntity.ok(awardService.getByStudent(studentId));
+    }
+
+    // ─── Meetings ───────────────────────────────────────────────────────
+
+    @GetMapping("/meetings")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<Meeting>> getMyMeetings(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[ParentPortalController] GET /api/parent/meetings — user='{}'", user.getId());
+        return ResponseEntity.ok(meetingService.getByParent(user.getId()));
+    }
+
+    @PostMapping("/meetings")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<Meeting> bookMeeting(@RequestBody Meeting meeting,
+                                                Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        meeting.setParentId(user.getId());
+        meeting.setParentName(user.getFullName());
+        meeting.setMeetingType("PARENT_TEACHER");
+        meeting.setCreatedBy(user.getFullName());
+        meeting.setCreatedByRole("PARENT");
+        log.info("[ParentPortalController] POST /api/parent/meetings — parent='{}', teacher='{}'",
+                user.getFullName(), meeting.getTeacherId());
+        return new ResponseEntity<>(meetingService.create(meeting), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/meetings/{meetingId}/feedback")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<Meeting> addMeetingFeedback(@PathVariable String meetingId,
+                                                       @RequestBody Map<String, String> body,
+                                                       Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[ParentPortalController] PUT /api/parent/meetings/{}/feedback — parent='{}'",
+                meetingId, user.getFullName());
+        return ResponseEntity.ok(meetingService.addFeedback(meetingId, body.get("feedback")));
     }
 }
