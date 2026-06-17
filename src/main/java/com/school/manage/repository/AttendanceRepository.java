@@ -18,4 +18,8 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
 
     List<Attendance> findByClassNameAndAcademicYearAndDateBetween(
             String className, String academicYear, LocalDate from, LocalDate to);
+
+    List<Attendance> findByAcademicYear(String academicYear);
+
+    List<Attendance> findByClassNameAndAcademicYear(String className, String academicYear);
 }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -105,5 +106,50 @@ public class AttendanceController {
     public ResponseEntity<Void> deleteAttendance(@PathVariable String id) {
         attendanceService.deleteAttendance(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Get attendance analytics for an academic year, optionally filtered by class.
+     *
+     * GET /api/attendance/analytics?className=&academicYear=2024-25
+     */
+    @GetMapping("/analytics")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
+    public ResponseEntity<Map<String, Object>> getAttendanceAnalytics(
+            @RequestParam(required = false) String className,
+            @RequestParam String academicYear) {
+        log.info("[AttendanceController] GET /api/attendance/analytics — class='{}', year='{}'",
+                className, academicYear);
+        return ResponseEntity.ok(attendanceService.getAttendanceAnalytics(className, academicYear));
+    }
+
+    /**
+     * Get detailed attendance information for a specific student.
+     *
+     * GET /api/attendance/analytics/student/{studentId}?academicYear=2024-25
+     */
+    @GetMapping("/analytics/student/{studentId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN','TEACHER')")
+    public ResponseEntity<Map<String, Object>> getStudentAttendanceDetail(
+            @PathVariable String studentId,
+            @RequestParam String academicYear) {
+        log.info("[AttendanceController] GET /api/attendance/analytics/student/{} — year='{}'",
+                studentId, academicYear);
+        return ResponseEntity.ok(attendanceService.getStudentAttendanceDetail(studentId, academicYear));
+    }
+
+    /**
+     * Get at-risk students whose attendance falls below the given threshold.
+     *
+     * GET /api/attendance/at-risk?academicYear=2024-25&threshold=75
+     */
+    @GetMapping("/at-risk")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SCHOOL_ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> getAtRiskStudents(
+            @RequestParam String academicYear,
+            @RequestParam(defaultValue = "75") double threshold) {
+        log.info("[AttendanceController] GET /api/attendance/at-risk — year='{}', threshold={}",
+                academicYear, threshold);
+        return ResponseEntity.ok(attendanceService.getAtRiskStudents(academicYear, threshold));
     }
 }

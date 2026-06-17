@@ -16,8 +16,11 @@ import com.school.manage.model.StudyMaterial;
 import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
 import com.school.manage.repository.StudentRepository;
+import com.school.manage.model.PaymentRecord;
+import com.school.manage.repository.PaymentRecordRepository;
 import com.school.manage.service.ComplaintService;
 import com.school.manage.service.ExamScheduleService;
+import com.school.manage.service.FeeReceiptPdfService;
 import com.school.manage.service.FeeService;
 import com.school.manage.service.HealthRecordService;
 import com.school.manage.service.HomeworkService;
@@ -58,6 +61,8 @@ public class StudentPortalController {
     private final ResultService resultService;
     private final ReportCardPdfService reportCardPdfService;
     private final FeeService feeService;
+    private final FeeReceiptPdfService feeReceiptPdfService;
+    private final PaymentRecordRepository paymentRecordRepository;
     private final HomeworkService homeworkService;
     private final TutorialVideoService tutorialVideoService;
     private final LibraryService libraryService;
@@ -309,6 +314,38 @@ public class StudentPortalController {
         log.info("[StudentPortalController] POST /api/student-portal/complaints — user='{}', title='{}'",
                 user.getFullName(), complaint.getTitle());
         return new ResponseEntity<>(complaintService.create(complaint), HttpStatus.CREATED);
+    }
+
+    /**
+     * Download a PDF receipt for a specific fee payment record.
+     * Validates that the fee record belongs to the authenticated student.
+     *
+     * GET /api/student-portal/fees/receipt/{feeRecordId}
+     */
+    @GetMapping("/fees/receipt/{feeRecordId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<byte[]> downloadMyFeeReceipt(
+            @PathVariable String feeRecordId,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        String studentId = user.getLinkedEntityId();
+        log.info("[StudentPortalController] GET /api/student-portal/fees/receipt/{} — student='{}'",
+                feeRecordId, studentId);
+
+        // Validate that this payment record belongs to the authenticated student
+        PaymentRecord record = paymentRecordRepository.findById(feeRecordId)
+                .orElseThrow(() -> new com.school.manage.exception.ResourceNotFoundException(
+                        "Payment record not found: " + feeRecordId));
+        if (!studentId.equals(record.getStudentId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        byte[] pdf = feeReceiptPdfService.generateReceipt(feeRecordId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=receipt_" + feeRecordId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
     // ─── Helper: strip correct answers from quizzes for student view ────
