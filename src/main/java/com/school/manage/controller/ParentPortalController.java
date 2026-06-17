@@ -3,10 +3,12 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ParentDashboardDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.Award;
 import com.school.manage.model.Complaint;
 import com.school.manage.model.DailyDiary;
 import com.school.manage.model.ExamSchedule;
 import com.school.manage.model.HealthRecord;
+import com.school.manage.model.Notice;
 import com.school.manage.model.Student;
 import com.school.manage.model.User;
 import com.school.manage.repository.StudentRepository;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -43,6 +46,8 @@ public class ParentPortalController {
     private final DailyDiaryService dailyDiaryService;
     private final HealthRecordService healthRecordService;
     private final ComplaintService complaintService;
+    private final NoticeService noticeService;
+    private final AwardService awardService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('PARENT')")
@@ -188,5 +193,36 @@ public class ParentPortalController {
         log.info("[ParentPortalController] POST /api/parent/complaints — user='{}', title='{}'",
                 user.getFullName(), complaint.getTitle());
         return new ResponseEntity<>(complaintService.create(complaint), HttpStatus.CREATED);
+    }
+
+    // ─── Notices ─────────────────────────────────────────────────────────
+
+    @GetMapping("/notices")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<Notice>> getNotices(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[ParentPortalController] GET /api/parent/notices — user='{}'", user.getId());
+
+        List<Notice> published = noticeService.getPublished();
+        List<Notice> filtered = new ArrayList<>();
+        for (Notice n : published) {
+            String audience = n.getTargetAudience();
+            if ("ALL".equals(audience) || "PARENTS".equals(audience)) {
+                filtered.add(n);
+            }
+        }
+        return ResponseEntity.ok(filtered);
+    }
+
+    // ─── Awards ──────────────────────────────────────────────────────────
+
+    @GetMapping("/child/{studentId}/awards")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<Award>> getChildAwards(Authentication auth,
+                                                      @PathVariable String studentId) {
+        User user = (User) auth.getPrincipal();
+        parentPortalService.validateParentAccess(user, studentId);
+        log.info("[ParentPortalController] GET /api/parent/child/{}/awards", studentId);
+        return ResponseEntity.ok(awardService.getByStudent(studentId));
     }
 }

@@ -10,6 +10,8 @@ import com.school.manage.model.HealthRecord;
 import com.school.manage.model.Homework;
 import com.school.manage.model.Quiz;
 import com.school.manage.model.QuizAttempt;
+import com.school.manage.model.Award;
+import com.school.manage.model.Notice;
 import com.school.manage.model.Student;
 import com.school.manage.model.DailyDiary;
 import com.school.manage.model.StudyMaterial;
@@ -18,6 +20,8 @@ import com.school.manage.model.TutorialVideo;
 import com.school.manage.repository.StudentRepository;
 import com.school.manage.model.PaymentRecord;
 import com.school.manage.repository.PaymentRecordRepository;
+import com.school.manage.service.AwardService;
+import com.school.manage.service.NoticeService;
 import com.school.manage.service.ComplaintService;
 import com.school.manage.service.ExamScheduleService;
 import com.school.manage.service.FeeReceiptPdfService;
@@ -73,6 +77,8 @@ public class StudentPortalController {
     private final DailyDiaryService dailyDiaryService;
     private final HealthRecordService healthRecordService;
     private final ComplaintService complaintService;
+    private final NoticeService noticeService;
+    private final AwardService awardService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -385,5 +391,42 @@ public class StudentPortalController {
             stripped.add(copy);
         }
         return stripped;
+    }
+
+    // ─── Notices ─────────────────────────────────────────────────────────
+
+    @GetMapping("/notices")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<Notice>> getMyNotices(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/notices — user='{}'", user.getId());
+        Student student = studentRepository.findById(user.getLinkedEntityId())
+                .orElseThrow(() -> new RuntimeException("Student not found: " + user.getLinkedEntityId()));
+        String studentClass = student.getClassForAdmission();
+
+        List<Notice> published = noticeService.getPublished();
+        LocalDate today = LocalDate.now();
+        List<Notice> filtered = new ArrayList<>();
+        for (Notice n : published) {
+            String audience = n.getTargetAudience();
+            if ("ALL".equals(audience) || "STUDENTS".equals(audience)
+                    || ("SPECIFIC_CLASS".equals(audience) && studentClass.equals(n.getTargetClass()))) {
+                // auto-mark as read
+                noticeService.markAsRead(n.getId(), user.getId());
+                filtered.add(n);
+            }
+        }
+        return ResponseEntity.ok(filtered);
+    }
+
+    // ─── Awards ──────────────────────────────────────────────────────────
+
+    @GetMapping("/awards")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<Award>> getMyAwards(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/awards — student='{}'",
+                user.getLinkedEntityId());
+        return ResponseEntity.ok(awardService.getByStudent(user.getLinkedEntityId()));
     }
 }
