@@ -3,11 +3,13 @@ package com.school.manage.controller;
 import com.school.manage.dto.AttendanceSummaryDto;
 import com.school.manage.dto.ChildOverviewDto;
 import com.school.manage.model.Attendance;
+import com.school.manage.model.BookIssue;
 import com.school.manage.model.Homework;
 import com.school.manage.model.User;
 import com.school.manage.model.TutorialVideo;
 import com.school.manage.service.FeeService;
 import com.school.manage.service.HomeworkService;
+import com.school.manage.service.LibraryService;
 import com.school.manage.service.ReportCardPdfService;
 import com.school.manage.service.ResultService;
 import com.school.manage.service.StudentPortalService;
@@ -38,6 +40,7 @@ public class StudentPortalController {
     private final FeeService feeService;
     private final HomeworkService homeworkService;
     private final TutorialVideoService tutorialVideoService;
+    private final LibraryService libraryService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('STUDENT')")
@@ -109,5 +112,13 @@ public class StudentPortalController {
         User user = (User) auth.getPrincipal();
         log.info("[StudentPortalController] GET /api/student-portal/videos for user={}", user.getId());
         return ResponseEntity.ok(tutorialVideoService.getVideosForStudent(user.getLinkedEntityId()));
+    }
+
+    @GetMapping("/library/my-books")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<List<BookIssue>> getMyBooks(Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        log.info("[StudentPortalController] GET /api/student-portal/library/my-books for user={}", user.getId());
+        return ResponseEntity.ok(libraryService.getStudentIssues(user.getLinkedEntityId()));
     }
 }
